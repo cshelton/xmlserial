@@ -25,19 +25,19 @@ USAGE:
 The basic usage for a simple class is illustrated as below.
 ```c++
 class MyClass {
-	XMLSERIAL_START(MyClass)
-		XMLSERIAL_VAR(int,x)
-		XMLSERIAL_VAR(double,y)
-		XMLSERIAL_VAR(std::string,s)
-	XMLSERIAL_END
+    XMLSERIAL_START(MyClass)
+        XMLSERIAL_VAR(int,x)
+        XMLSERIAL_VAR(double,y)
+        XMLSERIAL_VAR(std::string,s)
+    XMLSERIAL_END
 public:
-	MyClass(); // make sure to have a default constructor
-	//... rest of interface ...
+    MyClass(); // make sure to have a default constructor
+               //... rest of interface ...
 private:
-	int x; // all members mentioned above for serialization
-	double y; // must be declared
-	std::string s; // (they are "private" here, but that is 
-			// not required.  Order doesn't matter
+    int x; // all members mentioned above for serialization
+    double y; // must be declared
+    std::string s; // (they are "private" here, but that is 
+                   // not required.  Order doesn't matter
 };
 ```
 
