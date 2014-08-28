@@ -23,7 +23,7 @@ USAGE:
 ------
 
 The basic usage for a simple class is illustrated as below.
-```C++
+```c++
 class MyClass {
 	XMLSERIAL_START(MyClass)
 		XMLSERIAL_VAR(int,x)
@@ -49,8 +49,8 @@ More advanced usage cases are as follows.
 
 * If you would like to specify a default value for a member variable or super class (see below), use "XMLSERIAL_VAR_DEFAULT" instead of XMLSERIAL_VAR (or XMLSERIAL_SUPER_DEFAULT instead of XMLSERIAL_SUPER).  It takes an extra argument: the value to assign to the member or super class if the value is not given on the input stream.
 
-An example:
-```C++
+    An example:
+    ```c++
 class ClassA {
 	XMLSERIAL_START(ClassA)
 		XMLSERIAL_VAR_DEFAULT(int,a,5) // if a is not mentioned on
@@ -62,12 +62,12 @@ public:
 private:
 	int a;
 };
-```
+    ```
 
 * If you would like to specify a different name under which the member should be saved, you can use the XMLSERIAL_VAR_N and XMLSERIAL_VAR_DEFAULT_N macros which take one additional argument (at the end) that is a string with the name.
 
-An example:
-```c++
+    An example:
+    ```c++
 class SaveRename {
 	XMLSERIAL_START(SaveRename)
 		XMLSERIAL_VAR_N(int,a,"important integer")
@@ -79,14 +79,14 @@ public:
 private:
 	int a;
 	double d;
-};
+    };
 ```
-Be careful!  You must make sure that all members of the same class have different names!
+    Be careful!  You must make sure that all members of the same class have different names!
 
 * If the class has a super-class that needs to be serialized, all such super classes should be declared using XMLSERIAL_SUPER which takes a single argument: the type of the superclass
-An example:
+    An example:
 
-```c++
+    ```c++
 class ClassA {
 	XMLSERIAL_START(ClassA)
 		XMLSERIAL_VAR(int,a)
@@ -108,14 +108,13 @@ public:
 private:
 	float f;
 };
-```
-Multiple inheritance is okay (but see below): use XMLSERIAL_SUPER multiple times. There are also "_N" versions of these macros (see point above)
+    ```
+    Multiple inheritance is okay (but see below): use XMLSERIAL_SUPER multiple times. There are also "_N" versions of these macros (see point above)
 
 * To declare a class to be "virtual" and able to load and save pointers to it or any derived type with the types being determined at *runtime*, all such classes should use XMLSERIAL_START_V instead of XMLSERIAL_START
+    An example (modifying the example above only slightly):
 
-An example (modifying the example above only slightly):
-
-```c++
+    ```c++
 class ClassA {
 	XMLSERIAL_START_V(ClassA)
 		XMLSERIAL_VAR(int,a)
@@ -162,11 +161,12 @@ public:
 private:
 	ClassA *p;
 };
-```
-In this example, the member p in OtherClass might point to a ClassA, ClassB, or ClassC.  Because ClassA, ClassB, and ClassC used XMLSERIAL_START_V (instead of XMLSERIAL_START), this pointer will be correctly saved and loaded, no matter which class it actually points to.  If you have multiple inheritance, only one of the superclasses may be declared as "virtual" in this fashion.  As an example, if ClassC also derived from ClassX, then only one of ClassA and ClassX could be declared with "XMLSERIAL_START_V" (the other would have to be just "XMLSERIAL_START"), but both could be included with "XMLSERIAL_SUPER" in ClassC.
-  - To declare a template class, use the macro XMLSERIAL_STARTn instead of XMLSERIAL_START (where n is the number of arguments to the template). This macro takes extra arguments, one for each template parameter.  An example:
+    ```
+    In this example, the member p in OtherClass might point to a ClassA, ClassB, or ClassC.  Because ClassA, ClassB, and ClassC used XMLSERIAL_START_V (instead of XMLSERIAL_START), this pointer will be correctly saved and loaded, no matter which class it actually points to.  If you have multiple inheritance, only one of the superclasses may be declared as "virtual" in this fashion.  As an example, if ClassC also derived from ClassX, then only one of ClassA and ClassX could be declared with "XMLSERIAL_START_V" (the other would have to be just "XMLSERIAL_START"), but both could be included with "XMLSERIAL_SUPER" in ClassC.
+* To declare a template class, use the macro XMLSERIAL_STARTn instead of XMLSERIAL_START (where n is the number of arguments to the template). This macro takes extra arguments, one for each template parameter.
+    An example:
   
-```cpp
+    ```c++
 template<typename T> class MyTempl {
 	XMLSERIAL_START1(MyTempl,T)
 		XMLSERIAL_VAR(int,x)
@@ -179,12 +179,12 @@ private:
 	int x;
 	T y;
 };
-```
-If you wish to also make this class "virtual," use XMLSERIAL_STARTn_V instead (for example, XMLSERIAL_START1_V above).
+    ```
+    If you wish to also make this class "virtual," use XMLSERIAL_STARTn_V instead (for example, XMLSERIAL_START1_V above).
 
 * To declare a member variable or a superclass for a type that contains a comma (like a template with multiple arguments), use a typedef to give the type a new name.  Some examples:
 
-```c++
+    ```c++
 class YetAnotherClass {
 	typedef std::map<int,double> mymap;
 	XMLSERIAL_START(YetAnotherClass)
@@ -217,7 +217,7 @@ public:
 	CMap(); // be sure to have a default constructor
 	// ... rest of declaration
 };
-```
+    ```
 * If there is some "set-up" or "clean-up" code that needs to be run before or after saving or loading (say to build caches or to compact the structure), the class can declare the following public methods, which will be run at the appropriate times:
 
     ```c++
