@@ -51,17 +51,17 @@ More advanced usage cases are as follows.
 
     An example:
     ```c++
-class ClassA {
-	XMLSERIAL_START(ClassA)
-		XMLSERIAL_VAR_DEFAULT(int,a,5) // if a is not mentioned on
-						// an input stream, set it to 5
-	XMLSERIAL_END
-public:
-	ClassA(); // be sure to have a default constructor
-	// ... rest of declaration
-private:
-	int a;
-};
+    class ClassA {
+    	XMLSERIAL_START(ClassA)
+    		XMLSERIAL_VAR_DEFAULT(int,a,5) // if a is not mentioned on
+    						// an input stream, set it to 5
+    	XMLSERIAL_END
+    public:
+    	ClassA(); // be sure to have a default constructor
+    	// ... rest of declaration
+    private:
+    	int a;
+    };
     ```
 
 * If you would like to specify a different name under which the member should be saved, you can use the XMLSERIAL_VAR_N and XMLSERIAL_VAR_DEFAULT_N macros which take one additional argument (at the end) that is a string with the name.
