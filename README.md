@@ -52,15 +52,15 @@ More advanced usage cases are as follows.
     An example:
     ```c++
     class ClassA {
-    	XMLSERIAL_START(ClassA)
-    		XMLSERIAL_VAR_DEFAULT(int,a,5) // if a is not mentioned on
-    						// an input stream, set it to 5
-    	XMLSERIAL_END
+        XMLSERIAL_START(ClassA)
+            XMLSERIAL_VAR_DEFAULT(int,a,5) // if a is not mentioned on
+                                           // an input stream, set it to 5
+        XMLSERIAL_END
     public:
-    	ClassA(); // be sure to have a default constructor
-    	// ... rest of declaration
+        ClassA(); // be sure to have a default constructor
+             // ... rest of declaration
     private:
-    	int a;
+        int a;
     };
     ```
 
@@ -68,17 +68,17 @@ More advanced usage cases are as follows.
 
     An example:
     ```c++
-class SaveRename {
-	XMLSERIAL_START(SaveRename)
-		XMLSERIAL_VAR_N(int,a,"important integer")
-		XMLSERIAL_VAR_DEFAULT_N(double,d,3.14,"double member")
-	XMLSERIAL_END
-public:
-	SaveRename(); // be sure to have a default constructor
-	// ... rest of declaration
-private:
-	int a;
-	double d;
+    class SaveRename {
+        XMLSERIAL_START(SaveRename)
+            XMLSERIAL_VAR_N(int,a,"important integer")
+            XMLSERIAL_VAR_DEFAULT_N(double,d,3.14,"double member")
+        XMLSERIAL_END
+    public:
+        SaveRename(); // be sure to have a default constructor
+        // ... rest of declaration
+    private:
+        int a;
+        double d;
     };
 ```
     Be careful!  You must make sure that all members of the same class have different names!
@@ -87,27 +87,27 @@ private:
     An example:
 
     ```c++
-class ClassA {
-	XMLSERIAL_START(ClassA)
-		XMLSERIAL_VAR(int,a)
-	XMLSERIAL_END
-public:
-	ClassA(); // be sure to have a default constructor
-	// ... rest of declaration
-private:
-	int a;
-};
-class ClassB : public ClassA {
-	XMLSERIAL_START(ClassB)
-		XMLSERIAL_SUPER(ClassA)
-		XMLSERIAL_VAR(float,f)
-	XMLSERIAL_END
-public:
-	ClassB(); // be sure to have a default constructor
-	// ... rest of declaration
-private:
-	float f;
-};
+    class ClassA {
+        XMLSERIAL_START(ClassA)
+            XMLSERIAL_VAR(int,a)
+        XMLSERIAL_END
+    public:
+        ClassA(); // be sure to have a default constructor
+        // ... rest of declaration
+    private:
+        int a;
+    };
+    class ClassB : public ClassA {
+            XMLSERIAL_START(ClassB)
+            XMLSERIAL_SUPER(ClassA)
+            XMLSERIAL_VAR(float,f)
+        XMLSERIAL_END
+    public:
+        ClassB(); // be sure to have a default constructor
+        // ... rest of declaration
+    private:
+        float f;
+    };
     ```
     Multiple inheritance is okay (but see below): use XMLSERIAL_SUPER multiple times. There are also "_N" versions of these macros (see point above)
 
@@ -115,109 +115,113 @@ private:
     An example (modifying the example above only slightly):
 
     ```c++
-class ClassA {
-	XMLSERIAL_START_V(ClassA)
-		XMLSERIAL_VAR(int,a)
-	XMLSERIAL_END
-public:
-	ClassA(); // be sure to have a default constructor
-	virtual ~ClassA(); // be sure to have a virtual destructor
-	// ... rest of declaration
-private:
-	int a;
-};
+    class ClassA {
+        XMLSERIAL_START_V(ClassA)
+            XMLSERIAL_VAR(int,a)
+        XMLSERIAL_END
+    public:
+        ClassA(); // be sure to have a default constructor
+        virtual ~ClassA(); // be sure to have a virtual destructor
+        // ... rest of declaration
+    private:
+        int a;
+    };
 	
-class ClassB : public ClassA {
-	XMLSERIAL_START_V(ClassB)
-		XMLSERIAL_SUPER(ClassA)
-		XMLSERIAL_VAR(float,f)
-	XMLSERIAL_END
-public:
-	ClassB(); // be sure to have a default constructor
-	virtual ~ClassB(); // be sure to have a virtual destructor
-	// ... rest of declaration
-private:
-	float f;
-};
-class ClassC : public ClassA {
-	XMLSERIAL_START_V(ClassC)
-		XMLSERIAL_SUPER(ClassA)
-		XMLSERIAL_VAR(double,d)
-	XMLSERIAL_END
-public:
-	ClassC(); // be sure to have a default constructor
-	virtual ~ClassC(); // be sure to have a virtual destructor
-	// ... rest of declaration
-private:
-	double d;
-};
-class OtherClass {
-	XMLSERIAL_START(OtherClass)
-		XMLSERIAL_VAR(ClassA *,p)
-	XMLSERIAL_END
-public:
-	OtherClass(); // be sure to have a default constructor
-	// ... rest of declaration
-private:
-	ClassA *p;
-};
+    class ClassB : public ClassA {
+        XMLSERIAL_START_V(ClassB)
+            XMLSERIAL_SUPER(ClassA)
+            XMLSERIAL_VAR(float,f)
+        XMLSERIAL_END
+    public:
+        ClassB(); // be sure to have a default constructor
+        virtual ~ClassB(); // be sure to have a virtual destructor
+        // ... rest of declaration
+    private:
+        float f;
+    };
+    
+    class ClassC : public ClassA {
+        XMLSERIAL_START_V(ClassC)
+            XMLSERIAL_SUPER(ClassA)
+            XMLSERIAL_VAR(double,d)
+        XMLSERIAL_END
+    public:
+        ClassC(); // be sure to have a default constructor
+        virtual ~ClassC(); // be sure to have a virtual destructor
+        // ... rest of declaration
+    private:
+        double d;
+    };
+    class OtherClass {
+            XMLSERIAL_START(OtherClass)
+            XMLSERIAL_VAR(ClassA *,p)
+        XMLSERIAL_END
+    public:
+        OtherClass(); // be sure to have a default constructor
+        // ... rest of declaration
+    private:
+        ClassA *p;
+    };
     ```
     In this example, the member p in OtherClass might point to a ClassA, ClassB, or ClassC.  Because ClassA, ClassB, and ClassC used XMLSERIAL_START_V (instead of XMLSERIAL_START), this pointer will be correctly saved and loaded, no matter which class it actually points to.  If you have multiple inheritance, only one of the superclasses may be declared as "virtual" in this fashion.  As an example, if ClassC also derived from ClassX, then only one of ClassA and ClassX could be declared with "XMLSERIAL_START_V" (the other would have to be just "XMLSERIAL_START"), but both could be included with "XMLSERIAL_SUPER" in ClassC.
 * To declare a template class, use the macro XMLSERIAL_STARTn instead of XMLSERIAL_START (where n is the number of arguments to the template). This macro takes extra arguments, one for each template parameter.
     An example:
   
     ```c++
-template<typename T> class MyTempl {
-	XMLSERIAL_START1(MyTempl,T)
-		XMLSERIAL_VAR(int,x)
-		XMLSERIAL_VAR(T,y)
-	XMLSERIAL_END
-public:
-	MyTempl<T>(); // be sure to have a default constructor
-	// ... rest of declaration
-private:
-	int x;
-	T y;
-};
+    template<typename T> class MyTempl {
+        XMLSERIAL_START1(MyTempl,T)
+            XMLSERIAL_VAR(int,x)
+            XMLSERIAL_VAR(T,y)
+        XMLSERIAL_END
+    public:
+        MyTempl<T>(); // be sure to have a default constructor
+        // ... rest of declaration
+    private:
+        int x;
+        T y;
+    };
     ```
     If you wish to also make this class "virtual," use XMLSERIAL_STARTn_V instead (for example, XMLSERIAL_START1_V above).
 
 * To declare a member variable or a superclass for a type that contains a comma (like a template with multiple arguments), use a typedef to give the type a new name.  Some examples:
 
     ```c++
-class YetAnotherClass {
-	typedef std::map<int,double> mymap;
-	XMLSERIAL_START(YetAnotherClass)
-		XMLSERIAL_VAR(mymap,m)
-	XMLSERIAL_END
-public:
-	YetAnotherClass(); // be sure to have a default constructor
-	// ... rest of declaration
-private:
-	mymap m;
-};
-template<typename I, typename T>
-class TemplateMap {
-	typedef std::map<I,T> mymap;
-	XMLSERIAL_START2(TemplateMap,I,T)
-		XMLSERIAL_VAR(mymap,m)
-	XMLSERIAL_END
-public:
-	TemplateMap<I,T>(); // be sure to have a default constructor
-	// ... rest of declaration
-private:
-	mymap m;
-};
-class CMap : public TemplateMap<char,std::string> {
-	typedef TemplateMap<char,std::string> Base;
-	XMLSERIAL_START(CMap)
-		XMLSERIAL_SUPER(Base)
-	XMLSERIAL_END
-public:
-	CMap(); // be sure to have a default constructor
-	// ... rest of declaration
-};
+    class YetAnotherClass {
+        typedef std::map<int,double> mymap;
+        XMLSERIAL_START(YetAnotherClass)
+            XMLSERIAL_VAR(mymap,m)
+        XMLSERIAL_END
+    public:
+        YetAnotherClass(); // be sure to have a default constructor
+        // ... rest of declaration
+    private:
+        mymap m;
+    };
+    
+    template<typename I, typename T>
+    class TemplateMap {
+        typedef std::map<I,T> mymap;
+        XMLSERIAL_START2(TemplateMap,I,T)
+            XMLSERIAL_VAR(mymap,m)
+        XMLSERIAL_END
+    public:
+        TemplateMap<I,T>(); // be sure to have a default constructor
+        // ... rest of declaration
+    private:
+        mymap m;
+    };
+    
+    class CMap : public TemplateMap<char,std::string> {
+        typedef TemplateMap<char,std::string> Base;
+        XMLSERIAL_START(CMap)
+            XMLSERIAL_SUPER(Base)
+        XMLSERIAL_END
+    public:
+        CMap(); // be sure to have a default constructor
+        // ... rest of declaration
+    };
     ```
+    
 * If there is some "set-up" or "clean-up" code that needs to be run before or after saving or loading (say to build caches or to compact the structure), the class can declare the following public methods, which will be run at the appropriate times:
 
     ```c++
@@ -230,21 +234,21 @@ public:
 * To declare that your type will do its own serialization using	the shift operators (<< and >>), simply use "XMLSERIAL_USESHIFT" with the class name.  An example:
 
     ```c++
-class Simple {
-	XMLSERIAL_USESHIFT(Simple)
-public:
-	Simple(); // still need a default constructor
-	// ... rest of declaration
-	// need to make sure that somewhere the following
-	// functions are declared:
-	// std::istream &operator>>(std::istream &,Simple &);
-	// std::ostream &operator>>(std::ostream &,const Simple &);
-private:
-	// whatever members are necessary -- make sure all
-	// are saved/loaded by shift functions above
-	// in ASCII format without using the 5 special characters
-	// of XML {",',&,<,>}
-};
+    class Simple {
+        XMLSERIAL_USESHIFT(Simple)
+    public:
+        Simple(); // still need a default constructor
+        // ... rest of declaration
+        // need to make sure that somewhere the following
+        // functions are declared:
+        // std::istream &operator>>(std::istream &,Simple &);
+        // std::ostream &operator>>(std::ostream &,const Simple &);
+    private:
+        // whatever members are necessary -- make sure all
+        // are saved/loaded by shift functions above
+        // in ASCII format without using the 5 special characters
+        // of XML {",',&,<,>}
+    };
     ```
 Note that the operator<< and operator>> should *not* output characters quote("), single-quote('), ampersand(&), less-than(<), or greater-than(>).  If the output is very small, and you would like it be be placed in a "value" attribute (instead of between tags), then use the macro "XMLSERIAL_USESHIFT_SHORT" instead of "XMLSERIAL_USESHIFT" The two operators must read and write exactly the same characters (not leaving any extras on the stream or consuming extras from the stream)
 
@@ -257,18 +261,18 @@ A few final points:
 - If you do not directly use a class in your code (that is create an object of its type at some point), the class will not be available for "virtual" loading.	To do this, include somewhere in your code (a .cpp file is better than a .h file, as this creates a single pointer, and you only need one of them) the macro ENSURECLASS(HiddenClass) which will cause the class HiddenClass to be registered.  There are templated version of this too (ENSURECLASSn), but the extra arguments are not template formal parameter, but template actual parameters.  As an example:
 
     ```c++
-	template<typename T>
-	class TClass : public ParentClass {
-		XMLSERIAL_START1_V(TClass,T)
-			XMLSERIAL_SUPER(ParentClass)
-			//... normal macros for each member variable
-		XMLSERIAL_END
-	public:
-		//... default constructor, etc
-		//... and your class declarations/definitions
-	};
-	ENSURECLASS(TClass,int)
-	ENSURECLASS(TClass,double)
+    template<typename T>
+    class TClass : public ParentClass {
+        XMLSERIAL_START1_V(TClass,T)
+        XMLSERIAL_SUPER(ParentClass)
+            //... normal macros for each member variable
+        XMLSERIAL_END
+    public:
+        //... default constructor, etc
+        //... and your class declarations/definitions
+    };
+    ENSURECLASS(TClass,int)
+    ENSURECLASS(TClass,double)
     ```
 Will make sure that TClass<int> and TClass<double> can be loaded even if they are never used in the code and you are only trying to load a pointer to ParentClass (which might point to a TClass<int> or TClass<double>).
 
