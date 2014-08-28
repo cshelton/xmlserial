@@ -99,7 +99,7 @@ More advanced usage cases are as follows.
     };
     class ClassB : public ClassA {
             XMLSERIAL_START(ClassB)
-            XMLSERIAL_SUPER(ClassA)
+                XMLSERIAL_SUPER(ClassA)
             XMLSERIAL_VAR(float,f)
         XMLSERIAL_END
     public:
@@ -250,15 +250,17 @@ More advanced usage cases are as follows.
         // of XML {",',&,<,>}
     };
     ```
-Note that the operator<< and operator>> should *not* output characters quote("), single-quote('), ampersand(&), less-than(<), or greater-than(>).  If the output is very small, and you would like it be be placed in a "value" attribute (instead of between tags), then use the macro "XMLSERIAL_USESHIFT_SHORT" instead of "XMLSERIAL_USESHIFT" The two operators must read and write exactly the same characters (not leaving any extras on the stream or consuming extras from the stream)
+    Note that the operator<< and operator>> should *not* output characters quote("), single-quote('), ampersand(&), less-than(<), or greater-than(>).  If the output is very small, and you would like it be be placed in a "value" attribute (instead of between tags), then use the macro "XMLSERIAL_USESHIFT_SHORT" instead of "XMLSERIAL_USESHIFT" The two operators must read and write exactly the same characters (not leaving any extras on the stream or consuming extras from the stream)
 
-For classes like this, it is not possible to make them "virtual."  There are template versions (named XMLSERIAL_USESHIFTn and XMLSERIAL_USESHIFTn_SHORT -- where n is the number of template args)
+    For classes like this, it is not possible to make them "virtual."  There are template versions (named XMLSERIAL_USESHIFTn and XMLSERIAL_USESHIFTn_SHORT -- where n is the number of template args)
 
 
 A few final points:
-- The loading methods (Load) can throw a streamexception (see below).
+- The loading methods (Load) can throw a streamexception.
 - All extra classes and functions are placed in their own namespace.  The name defaults to xmlserial.  However, if you define the compile symbol XMLSERIALNAMESPACE, you can change the namespace.  Inside of the class, extra types and methods are added.  These all begin with xmlserial_ or XMLSERIAL_.  This header defines compiler symbols (like macros) that all begin with XMLSERIAL_.
-- If you do not directly use a class in your code (that is create an object of its type at some point), the class will not be available for "virtual" loading.	To do this, include somewhere in your code (a .cpp file is better than a .h file, as this creates a single pointer, and you only need one of them) the macro ENSURECLASS(HiddenClass) which will cause the class HiddenClass to be registered.  There are templated version of this too (ENSURECLASSn), but the extra arguments are not template formal parameter, but template actual parameters.  As an example:
+- If you do not directly use a class in your code (that is create an object of its type at some point), the class will not be available for "virtual" loading.
+
+  To do this, include somewhere in your code (a .cpp file is better than a .h file, as this creates a single pointer, and you only need one of them) the macro ENSURECLASS(HiddenClass) which will cause the class HiddenClass to be registered.  There are templated version of this too (ENSURECLASSn), but the extra arguments are not template formal parameter, but template actual parameters.  As an example:
 
     ```c++
     template<typename T>
