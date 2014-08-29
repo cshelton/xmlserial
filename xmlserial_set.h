@@ -26,8 +26,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef CTBNRLE_XMLSERIAL_SET_H
-#define CTBNRLE_XMLSERIAL_SET_H
+#ifndef XMLSERIAL_SET_H
+#define XMLSERIAL_SET_H
 
 #include <set>
 

@@ -26,35 +26,4 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef XMLSERIAL_SET_H
-#define XMLSERIAL_SET_H
-
-#include "xmlserial.h"
-
-namespace XMLSERIALNAMESPACE {
-	template<>
-	struct TypeInfo<std::string,void> {
-		inline static const char *namestr() { return "string"; }
-		inline static void writeotherattr(std::ostream &, const std::string &) { }
-		inline static bool isshort(const std::string &s) { return s.length()<20; }
-		inline static bool isinline(const std::string &s) { return false; }
-		inline static void save(const std::string &s, std::ostream &os,
-				int indent) {
-			WriteStr(os,s,isshort(s));
-		}
-		inline static void load(std::string &s, const XMLTagInfo &info,
-				std::istream &is) {
-			std::map<std::string,std::string>::const_iterator vi
-				=info.attr.find("value");
-			if (vi!=info.attr.end()) {
-				std::istringstream ss(vi->second);
-				ss.copyfmt(is);
-				ReadStr(ss,s,"");
-				if (info.isend) return;
-			} else ReadStr(is,s,"<");
-			ReadEndTag(is,namestr());
-		}
-	};
-
-}
-#endif
+#ifndef XM

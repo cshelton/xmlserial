@@ -26,8 +26,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef CTBNRLE_XMLSERIAL_H
-#define CTBNRLE_XMLSERIAL_H
+#ifndef XMLSERIAL_H
+#define XMLSERIAL_H
 
 #include <exception>
 #include <string>
@@ -1030,6 +1030,7 @@ namespace XMLSERIALNAMESPACE {
 			os << "<\\" << TypeInfo<T>::namestr() << ">" << std::endl;
 		}
 	}
+
 
 	// Saving method, raw pointer, virtual
 	template<typename T>
