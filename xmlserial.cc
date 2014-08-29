@@ -26,13 +26,12 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "streamserial.h"
-
 #include <cstdarg>
 #include <iostream>
+#include <string.h>
+#include "xmlserial.h"
 
-
-namespace SERIALNAMESPACE {
+namespace XMLSERIALNAMESPACE {
 
 	// helpful formatting fn
 	void Indent(std::ostream &os, int indent) {
