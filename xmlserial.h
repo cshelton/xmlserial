@@ -43,11 +43,19 @@
 #define XMLSERIALNAMESPACE xmlserial
 #endif
 
-namespace XMLSERIALNAMESPACE {
-
-#ifndef nullptr
+// pick how to add a value to a struct (enum or static int const)
+#define XMLSERIAL_DECVAL(vname,expr) \
+	enum { vname = (expr) };
+	//static int const vname = (expr);
+	
+#if _cplusplus <= 199711L
 #define nullptr (0)
 #endif
+
+#include "xmlserial_ptrs.h"
+
+namespace XMLSERIALNAMESPACE {
+
 
 	// can be thrown by the "Load" method
 	class streamexception : public std::exception {
@@ -91,45 +99,49 @@ namespace XMLSERIALNAMESPACE {
 #define XMLSERIAL_NOTV_COMMON \
 	friend struct XMLSERIALNAMESPACE::IsEmpty<XMLSERIAL_BASETYPE,void>; \
 	private: \
-		template<typename XMLSERIAL__T,bool XMLSERIAL__B> \
-		struct xmlserial__vallocT { \
-			const static bool valid = !XMLSERIAL__B; \
+		template<typename XMLSERIAL_T,bool XMLSERIAL_B> \
+		struct xmlserial_vallocT { \
+			const static bool valid = !XMLSERIAL_B; \
 			typedef XMLSERIAL_BASETYPE rettype; \
-			typedef XMLSERIAL_BASETYPE *(*createfntype)(void); \
-			typedef std::map<std::string,createfntype> allocmaptype; \
-			inline static XMLSERIAL_BASETYPE *\
-					allocbyname(const std::string &name) { \
-				return nullptr; } \
+			typedef XMLSERIALNAMESPACE::basefactory<rettype> createtype; \
+			typedef std::map<std::string,createtype*> allocmaptype; \
+			template<typename PTRT> \
+			inline static void allocbyname(const std::string &name, \
+					PTRT &ret) { \
+				XMLSERIALNAMESPACE::PtrInfo<PTRT>::setnull(ret); \
+			} \
 			inline static allocmaptype &alloctable() { \
 				static allocmaptype table; \
 				return table; \
 			} \
 			inline static const char * \
-					addalloc(const char *name, createfntype fn) \
+					addalloc(const char *name, createtype *fn) \
 				{ return name; } \
 		}; \
 
 #define XMLSERIAL_V_COMMON(myname) \
 	friend struct XMLSERIALNAMESPACE::IsEmpty<XMLSERIAL_BASETYPE,void>; \
 	private: \
-		template<typename XMLSERIAL__T, bool XMLSERIAL__B> \
-		struct xmlserial__vallocT { \
-			const static bool valid = XMLSERIAL__B; \
+		template<typename XMLSERIAL_T, bool XMLSERIAL_B> \
+		struct xmlserial_vallocT { \
+			const static bool valid = XMLSERIAL_B; \
 			typedef XMLSERIAL_BASETYPE rettype; \
-			typedef XMLSERIAL_BASETYPE *(*createfntype)(void); \
-			typedef std::map<std::string,createfntype> allocmaptype; \
-			inline static XMLSERIAL_BASETYPE * \
-					allocbyname(const std::string &name) { \
+			typedef XMLSERIALNAMESPACE::basefactory<rettype> createtype; \
+			typedef std::map<std::string,createtype*> allocmaptype; \
+			template<typename PTRT> \
+			inline static void allocbyname(const std::string &name, \
+					PTRT &ret) { \
 				typename allocmaptype::iterator i = alloctable().find(name); \
-				if (i==alloctable().end()) return nullptr; \
-				else return i->second(); \
+				if (i==alloctable().end()) \
+					XMLSERIALNAMESPACE::PtrInfo<PTRT>::setnull(ret); \
+				else ret = XMLSERIALNAMESPACE::PtrInfo<PTRT>::cast(i->second->valloc(PTRT())); \
 			} \
 			inline static allocmaptype &alloctable() { \
 				static allocmaptype table; \
 				return table; \
 			} \
 			inline static const char * \
-					addalloc(const char *name, createfntype fn) { \
+					addalloc(const char *name, createtype *fn) { \
 				alloctable()[std::string(name)] = fn; \
 				return name; \
 			} \
@@ -142,27 +154,25 @@ namespace XMLSERIALNAMESPACE {
 			XMLSERIAL_BASETYPE *ret; XMLSERIALNAMESPACE::LoadWrapper(ret,is); \
 			return ret; \
 		} \
-		virtual void xmlserial__loadwrapv(std::istream &is, \
+		virtual void xmlserial_loadwrapv(std::istream &is, \
 					const XMLSERIALNAMESPACE::XMLTagInfo &info) { \
 			XMLSERIALNAMESPACE::LoadWrapper(*this,info,is); \
 		}
 
 #define XMLSERIAL_SUPER_COMMON(cname) \
-		xmlserial__class##cname##lst; \
-		template<bool XMLSERIAL__B> \
-		struct xmlserial__vallocT<typename XMLSERIALNAMESPACE::Type_If<XMLSERIAL__B && cname::xmlserial__valloc::valid,XMLSERIAL_BASETYPE>::type,XMLSERIAL__B> { \
-			const static bool valid = XMLSERIAL__B; \
-			typedef cname::xmlserial__valloc::rettype rettype; \
-			typedef cname::xmlserial__valloc::createfntype createfntype; \
-			inline static XMLSERIAL_BASETYPE *allocbyname(const std::string &name) { \
-				cname::xmlserial__valloc::rettype *cret = cname::xmlserial__valloc::allocbyname(name); \
-				if (cret == nullptr) return nullptr; \
-				XMLSERIAL_BASETYPE *ret = dynamic_cast<XMLSERIAL_BASETYPE *>(cret); \
-				if (ret == nullptr) return nullptr; \
-				return ret; \
+		xmlserial_class##cname##lst; \
+		template<bool XMLSERIAL_B> \
+		struct xmlserial_vallocT<typename XMLSERIALNAMESPACE::Type_If<XMLSERIAL_B && cname::xmlserial_valloc::valid,XMLSERIAL_BASETYPE>::type,XMLSERIAL_B> { \
+			const static bool valid = XMLSERIAL_B; \
+			typedef cname::xmlserial_valloc::rettype rettype; \
+			typedef XMLSERIALNAMESPACE::basefactory<rettype> createtype; \
+			template<typename PTRT> \
+			inline static void allocbyname(const std::string &name, \
+						PTRT &ret) { \
+				cname::xmlserial_valloc::allocbyname<PTRT>(name,ret); \
 			} \
-			inline static const char *addalloc(const char *name, createfntype fn) \
-				{ return cname::xmlserial__valloc::addalloc(name,fn); } \
+			inline static const char *addalloc(const char *name, createtype *fn) \
+				{ return cname::xmlserial_valloc::addalloc(name,fn); } \
 		}; \
 
 #define XMLSERIAL_NAME0(cname) \
@@ -222,31 +232,31 @@ namespace XMLSERIALNAMESPACE {
 	}
 
 #define XMLSERIAL_SNAME0(cname) \
-	static const char *xmlserial__shiftname() { \
+	static const char *xmlserial_shiftname() { \
 		static const char *ret = XMLSERIAL_NAME0(cname); \
 		return ret; \
 	} \
 
 #define XMLSERIAL_SNAME1(cname,tname1) \
-	static const char *xmlserial__shiftname() { \
+	static const char *xmlserial_shiftname() { \
 		static const char *ret = XMLSERIAL_NAME1(cname,tname1); \
 		return ret; \
 	}
 
 #define XMLSERIAL_SNAME2(cname,tname1,tname2) \
-	static const char *xmlserial__shiftname() { \
+	static const char *xmlserial_shiftname() { \
 		static const char *ret = XMLSERIAL_NAME2(cname,tname1,tname2); \
 		return ret; \
 	}
 
 #define XMLSERIAL_SNAME3(cname,tname1,tname2,tname3) \
-	static const char *xmlserial__shiftname() { \
+	static const char *xmlserial_shiftname() { \
 		static const char *ret = XMLSERIAL_NAME3(cname,tname1,tname2,tname3); \
 		return ret; \
 	}
 
 #define XMLSERIAL_SNAME4(cname,tname1,tname2,tname3,tname4) \
-	static const char *xmlserial__shiftname() { \
+	static const char *xmlserial_shiftname() { \
 		static const char *ret = \
 			XMLSERIAL_NAME4(cname,tname1,tname2,tname3,tname4); \
 		return ret; \
@@ -255,41 +265,41 @@ namespace XMLSERIALNAMESPACE {
 
 #define XMLSERIAL_ID0_V(cname) \
 	static const char *xmlserial_IDname() { \
-		static const char *ret = xmlserial__valloc::addalloc( \
+		static const char *ret = xmlserial_valloc::addalloc( \
 			XMLSERIAL_NAME0(cname), \
-			XMLSERIALNAMESPACE::creator<XMLSERIAL_BASETYPE>::create<xmlserial__valloc::rettype>); \
+			new XMLSERIALNAMESPACE::factory<XMLSERIAL_BASETYPE,xmlserial_valloc::rettype>()); \
 		return ret; \
 	} \
 
 #define XMLSERIAL_ID1_V(cname,tname1) \
 	static const char *xmlserial_IDname() { \
-		static const char *ret = xmlserial__valloc::addalloc( \
+		static const char *ret = xmlserial_valloc::addalloc( \
 			XMLSERIAL_NAME1(cname,tname1), \
-			XMLSERIALNAMESPACE::template creator<XMLSERIAL_BASETYPE>::template create<typename xmlserial__valloc::rettype>); \
+			new XMLSERIALNAMESPACE::factory<XMLSERIAL_BASETYPE,xmlserial_valloc::rettype>()); \
 		return ret; \
 	}
 
 #define XMLSERIAL_ID2_V(cname,tname1,tname2) \
 	static const char *xmlserial_IDname() { \
-		static const char *ret = xmlserial__valloc::addalloc( \
+		static const char *ret = xmlserial_valloc::addalloc( \
 			XMLSERIAL_NAME2(cname,tname1,tname2), \
-			XMLSERIALNAMESPACE::template creator<XMLSERIAL_BASETYPE>::template create<typename xmlserial__valloc::rettype>); \
+			new XMLSERIALNAMESPACE::factory<XMLSERIAL_BASETYPE,xmlserial_valloc::rettype>()); \
 		return ret; \
 	}
 
 #define XMLSERIAL_ID3_V(cname,tname1,tname2,tname3) \
 	static const char *xmlserial_IDname() { \
-		static const char *ret = xmlserial__valloc::addalloc( \
+		static const char *ret = xmlserial_valloc::addalloc( \
 			XMLSERIAL_NAME3(cname,tname1,tname2,tname3), \
-			XMLSERIALNAMESPACE::template creator<XMLSERIAL_BASETYPE>::template create<typename xmlserial__valloc::rettype>); \
+			new XMLSERIALNAMESPACE::factory<XMLSERIAL_BASETYPE,xmlserial_valloc::rettype>()); \
 		return ret; \
 	}
 
 #define XMLSERIAL_ID4_V(cname,tname1,tname2,tname3,tname4) \
 	static const char *xmlserial_IDname() { \
-		static const char *ret = xmlserial__valloc::addalloc( \
+		static const char *ret = xmlserial_valloc::addalloc( \
 			XMLSERIAL_NAME4(cname,tname1,tname2,tname3,tname4), \
-			XMLSERIALNAMESPACE::creator<XMLSERIAL_BASETYPE>::create<typename xmlserial__valloc::rettype>); \
+			new XMLSERIALNAMESPACE::factory<XMLSERIAL_BASETYPE,xmlserial_valloc::rettype>()); \
 		return ret; \
 	}
 
@@ -302,7 +312,7 @@ namespace XMLSERIALNAMESPACE {
 	public: \
 		XMLSERIAL_SNAME0(cname) \
 		enum { XMLSERIAL_ISSHORT = false };
-		//inline static bool xmlserial__isshort() { return false; }
+		//inline static bool xmlserial_isshort() { return false; }
 
 #define XMLSERIAL_USESHIFT_SHORT(cname) \
 	private: \
@@ -311,7 +321,7 @@ namespace XMLSERIALNAMESPACE {
 	public: \
 		XMLSERIAL_SNAME0(cname) \
 		enum { XMLSERIAL_ISSHORT = true };
-		//inline static bool xmlserial__isshort() { return true; }
+		//inline static bool xmlserial_isshort() { return true; }
 
 #define XMLSERIAL_USESHIFT1(cname,tname1) \
 	private: \
@@ -319,7 +329,7 @@ namespace XMLSERIALNAMESPACE {
 	XMLSERIAL_NOTV_COMMON \
 	public: \
 		XMLSERIAL_SNAME1(cname,tname1) \
-		inline static bool xmlserial__isshort() { return false; }
+		inline static bool xmlserial_isshort() { return false; }
 
 #define XMLSERIAL_USESHIFT1_SHORT(cname) \
 	private: \
@@ -327,7 +337,7 @@ namespace XMLSERIALNAMESPACE {
 	XMLSERIAL_NOTV_COMMON \
 	public: \
 		XMLSERIAL_SNAME1(cname,tname1) \
-		inline static bool xmlserial__isshort() { return true; }
+		inline static bool xmlserial_isshort() { return true; }
 
 #define XMLSERIAL_USESHIFT2(cname,tname1,tname2) \
 	private: \
@@ -335,7 +345,7 @@ namespace XMLSERIALNAMESPACE {
 	XMLSERIAL_NOTV_COMMON \
 	public: \
 		XMLSERIAL_SNAME2(cname,tname1,tname2) \
-		inline static bool xmlserial__isshort() { return false; }
+		inline static bool xmlserial_isshort() { return false; }
 
 #define XMLSERIAL_USESHIFT2_SHORT(cname,tname1,tname2) \
 	private: \
@@ -343,7 +353,7 @@ namespace XMLSERIALNAMESPACE {
 	XMLSERIAL_NOTV_COMMON \
 	public: \
 		XMLSERIAL_SNAME2(cname,tname1,tname2) \
-		inline static bool xmlserial__isshort() { return true; }
+		inline static bool xmlserial_isshort() { return true; }
 
 #define XMLSERIAL_USESHIFT3(cname) \
 	private: \
@@ -351,7 +361,7 @@ namespace XMLSERIALNAMESPACE {
 	XMLSERIAL_NOTV_COMMON \
 	public: \
 		XMLSERIAL_SNAME3(cname,tname1,tname2,tname3) \
-		inline static bool xmlserial__isshort() { return false; }
+		inline static bool xmlserial_isshort() { return false; }
 
 #define XMLSERIAL_USESHIFT3_SHORT(cname,tname1,tname2,tname3) \
 	private: \
@@ -359,7 +369,7 @@ namespace XMLSERIALNAMESPACE {
 	XMLSERIAL_NOTV_COMMON \
 	public: \
 		XMLSERIAL_SNAME3(cname,tname1,tname2,tname3) \
-		inline static bool xmlserial__isshort() { return true; }
+		inline static bool xmlserial_isshort() { return true; }
 
 #define XMLSERIAL_USESHIFT4(cname,tname1,tname2,tname3,tname4) \
 	private: \
@@ -367,7 +377,7 @@ namespace XMLSERIALNAMESPACE {
 	XMLSERIAL_NOTV_COMMON \
 	public: \
 		XMLSERIAL_SNAME4(cname,tname1,tname2,tname3,tname4) \
-		inline static bool xmlserial__isshort() { return false; }
+		inline static bool xmlserial_isshort() { return false; }
 
 #define XMLSERIAL_USESHIFT4_SHORT(cname) \
 	private: \
@@ -375,7 +385,7 @@ namespace XMLSERIALNAMESPACE {
 	XMLSERIAL_NOTV_COMMON \
 	public: \
 		XMLSERIAL_SNAME4(cname,tname1,tname2,tname3,tname4) \
-		inline static bool xmlserial__isshort() { return true; }
+		inline static bool xmlserial_isshort() { return true; }
 
 /* Here starts "START" macros: */
 
@@ -474,102 +484,102 @@ namespace XMLSERIALNAMESPACE {
 /* Here starts "VAR" macros */
 
 #define XMLSERIAL_VAR(vtype,vname) \
-		xmlserial__##vname##lst; \
+		xmlserial_##vname##lst; \
 		typedef XMLSERIAL_GETTERSTRUCT((o->vname),(o->vname),vtype,#vname) \
-			xmlserial__get##vname; \
-		typedef XMLSERIALNAMESPACE::List<xmlserial__get##vname,xmlserial__##vname##lst>
+			xmlserial_get##vname; \
+		typedef XMLSERIALNAMESPACE::List<xmlserial_get##vname,xmlserial_##vname##lst>
 
 #define XMLSERIAL_VAR_DEFAULT(vtype,vname,val) \
-		xmlserial__##vname##lst; \
+		xmlserial_##vname##lst; \
 		typedef XMLSERIAL_GETTERSTRUCT_DEFAULT((o->vname),(o->vname),vtype,#vname,val) \
-			xmlserial__get##vname; \
-		typedef XMLSERIALNAMESPACE::List<xmlserial__get##vname,xmlserial__##vname##lst>
+			xmlserial_get##vname; \
+		typedef XMLSERIALNAMESPACE::List<xmlserial_get##vname,xmlserial_##vname##lst>
 
 #define XMLSERIAL_VAR_N(vtype,vname,sname) \
-		xmlserial__##vname##lst; \
+		xmlserial_##vname##lst; \
 		typedef XMLSERIAL_GETTERSTRUCT((o->vname),(o->vname),vtype,sname) \
-			xmlserial__get##vname; \
-		typedef XMLSERIALNAMESPACE::List<xmlserial__get##vname,xmlserial__##vname##lst>
+			xmlserial_get##vname; \
+		typedef XMLSERIALNAMESPACE::List<xmlserial_get##vname,xmlserial_##vname##lst>
 
 #define XMLSERIAL_VAR_DEFAULT_N(vtype,vname,val,sname) \
-		xmlserial__##vname##lst; \
+		xmlserial_##vname##lst; \
 		typedef XMLSERIAL_GETTERSTRUCT_DEFAULT((o->vname),(o->vname),vtype,sname,val) \
-			xmlserial__get##vname; \
-		typedef XMLSERIALNAMESPACE::List<xmlserial__get##vname,xmlserial__##vname##lst>
+			xmlserial_get##vname; \
+		typedef XMLSERIALNAMESPACE::List<xmlserial_get##vname,xmlserial_##vname##lst>
 
 /* Here starts "SUPER" macros */
 
 #define XMLSERIAL_SUPER(cname) \
 		XMLSERIAL_SUPER_COMMON(cname) \
 		typedef XMLSERIAL_GETTERSTRUCT((*(static_cast<cname *>(o))),*(static_cast<const cname *>(o)),cname,#cname) \
-			xmlserial__getclass##cname; \
-		typedef XMLSERIALNAMESPACE::List<xmlserial__getclass##cname,xmlserial__class##cname##lst>
+			xmlserial_getclass##cname; \
+		typedef XMLSERIALNAMESPACE::List<xmlserial_getclass##cname,xmlserial_class##cname##lst>
 			
 			
 #define XMLSERIAL_SUPER_DEFAULT(cname,val) \
 	XMLSERIAL_SUPER_COMMON(cname) \
 	typedef XMLSERIAL_GETTERSTRUCT_DEFAULT((*(static_cast<cname *>(o))), \
 		*(static_cast<const cname *>(o)),cname,#cname,val) \
-		xmlserial__getclass##cname; \
-	typedef XMLSERIALNAMESPACE::List<xmlserial__getclass##cname, \
-		xmlserial__class##cname##lst>
+		xmlserial_getclass##cname; \
+	typedef XMLSERIALNAMESPACE::List<xmlserial_getclass##cname, \
+		xmlserial_class##cname##lst>
 			
 #define XMLSERIAL_SUPER_N(cname,sname) \
 		XMLSERIAL_SUPER_COMMON(cname) \
 		typedef XMLSERIAL_GETTERSTRUCT((*(static_cast<cname *>(o))),*(static_cast<const cname *>(o)),cname,sname) \
-			xmlserial__getclass##cname; \
-		typedef XMLSERIALNAMESPACE::List<xmlserial__getclass##cname,xmlserial__class##cname##lst>
+			xmlserial_getclass##cname; \
+		typedef XMLSERIALNAMESPACE::List<xmlserial_getclass##cname,xmlserial_class##cname##lst>
 			
 			
 #define XMLSERIAL_SUPER_DEFAULT_N(cname,val,sname) \
 	XMLSERIAL_SUPER_COMMON(cname) \
 	typedef XMLSERIAL_GETTERSTRUCT_DEFAULT((*(static_cast<cname *>(o))), \
 		*(static_cast<const cname *>(o)),cname,sname,val) \
-		xmlserial__getclass##cname; \
-	typedef XMLSERIALNAMESPACE::List<xmlserial__getclass##cname, \
-		xmlserial__class##cname##lst>
+		xmlserial_getclass##cname; \
+	typedef XMLSERIALNAMESPACE::List<xmlserial_getclass##cname, \
+		xmlserial_class##cname##lst>
 			
 
 /* Here starts "ENSURECLASS" macros */
 
 #define ENSURECLASS(cname) \
-	namespace { static const char *namefor__##cname=cname::xmlserial_IDname(); }
+	namespace { static const char *namefor_##cname=cname::xmlserial_IDname(); }
 
 #define ENSURECLASS1(cname,tname1) \
-	namespace { static const char *namefor__##cname##tname1 = \
+	namespace { static const char *namefor_##cname##tname1 = \
 		cname<tname1>::xmlserial_IDname(); }
 
 #define ENSURECLASS2(cname,tname1,tname2) \
-	namespace { static const char *namefor__##cname##tname1##tname2 = \
+	namespace { static const char *namefor_##cname##tname1##tname2 = \
 		cname<tname1,tname2>::xmlserial_IDname(); }
 
 #define ENSURECLASS3(cname,tname1,tname2,tname3) \
 	namespace { \
-		static const char *namefor__##cname##tname1##tname2##tname3 = \
+		static const char *namefor_##cname##tname1##tname2##tname3 = \
 			cname<tname1,tname2,tname3>::xmlserial_IDname(); \
 	}
 
 #define ENSURECLASS4(cname,tname1,tname2,tname3,tname4) \
 	namespace { \
-		static const char *namefor__##cname##tname1##tname2##tname3##tname4 \
+		static const char *namefor_##cname##tname1##tname2##tname3##tname4 \
 			= cname<tname1,tname2,tname3,tname4>::xmlserial_IDname(); \
 	}
 
 /* Here starts "END" macros (only 1, actually) */
 
 #define XMLSERIAL_END \
-        xmlserial__tmp__alllist; \
+        xmlserial_tmp_alllist; \
     public: \
-        typedef xmlserial__tmp__alllist xmlserial__alllist; \
-        typedef xmlserial__vallocT<XMLSERIAL_BASETYPE,true> xmlserial__valloc; \
-        inline void xmlserial__Save(std::ostream &os, int indent=0) const { \
-            XMLSERIALNAMESPACE::SaveItt<xmlserial__alllist>::exec(this,os,indent); } \
+        typedef xmlserial_tmp_alllist xmlserial_alllist; \
+        typedef xmlserial_vallocT<XMLSERIAL_BASETYPE,true> xmlserial_valloc; \
+        inline void xmlserial_Save(std::ostream &os, int indent=0) const { \
+            XMLSERIALNAMESPACE::SaveItt<xmlserial_alllist>::exec(this,os,indent); } \
         inline void Save(std::ostream &os, const char *name="", \
                         int indent=0) const { \
             XMLSERIALNAMESPACE::SaveWrapper(*this,name,os,indent); \
         } \
-        inline void xmlserial__Load(std::istream &is) { \
-            XMLSERIALNAMESPACE::LoadList<xmlserial__alllist>::exec \
+        inline void xmlserial_Load(std::istream &is) { \
+            XMLSERIALNAMESPACE::LoadList<xmlserial_alllist>::exec \
                 (this,is,xmlserial_IDname()); \
         } \
         inline void Load(std::istream &is) { \
@@ -587,15 +597,14 @@ namespace XMLSERIALNAMESPACE {
 
 #include <map>
 #include <set>
-#include <set>
 
 namespace XMLSERIALNAMESPACE {
 
 	char *TName(const char *cname, int n, ...);
 	void Indent(std::ostream &os, int indent);
-	void *AllocByName(const std::string &name);
-	typedef void *(*createfntype)(void);
-	const char *AddAlloc(const char *name, createfntype fn);
+	//void *AllocByName(const std::string &name);
+	//typedef void *(*createfntype)(void);
+	//const char *AddAlloc(const char *name, createfntype fn);
 
 	// a simple list:
 	struct ListEnd {};
@@ -615,10 +624,6 @@ namespace XMLSERIALNAMESPACE {
 	struct Type_If<false,T> {
 	};
 
-	// pick how to add a value to a struct (enum or static int const)
-#define XMLSERIAL_DECVAL(vname,expr) \
-	enum { vname = (expr) };
-	//static int const vname = (expr);
 
 	// properties of type T:
 	// This one has appeared in one form or another all over the
@@ -629,7 +634,7 @@ namespace XMLSERIALNAMESPACE {
 
 		template<typename S> static char
 			(& chksave(type_check<void (S::*)(std::ostream&,int),
-					 &S::xmlserial__Save>*))[1];
+					 &S::xmlserial_Save>*))[1];
 		template<typename> static char (& chksave(...))[2];
 		XMLSERIAL_DECVAL(HasSave,sizeof(chksave<T>(0)) == 1)
 
@@ -642,7 +647,7 @@ namespace XMLSERIALNAMESPACE {
 
 		template<typename S> static char
 			(& chkshift(type_check<const char *(*)(),
-						&S::xmlserial__shiftname>*))[1];
+						&S::xmlserial_shiftname>*))[1];
 		template<typename> static char
 			(& chkshift(...))[2];
 		XMLSERIAL_DECVAL(HasShift,sizeof(chkshift<T>(0)) == 1)
@@ -689,7 +694,7 @@ namespace XMLSERIALNAMESPACE {
 			(& chkpostsave(...))[2];
 		XMLSERIAL_DECVAL(HasPostSave,sizeof(chkpostsave<T>(0)) == 1)
 
-		//enum { BlankList = SameType<ListEnd,typename T::xmlserial__alllist>::value };
+		//enum { BlankList = SameType<ListEnd,typename T::xmlserial_alllist>::value };
 	};
 
 	// Whether it has a default constructor (why not above?  I don't know)
@@ -719,7 +724,7 @@ namespace XMLSERIALNAMESPACE {
 	};
 
 	template<typename T>
-	struct IsEmpty<T,typename Type_If<ListEmpty<typename T::xmlserial__alllist>::value,void>::type> {
+	struct IsEmpty<T,typename Type_If<ListEmpty<typename T::xmlserial_alllist>::value,void>::type> {
 		XMLSERIAL_DECVAL(value,true)
 	};
 
@@ -736,17 +741,6 @@ namespace XMLSERIALNAMESPACE {
 
 
 
-	// construct the object, if it has a default constructor
-	template<typename AT>
-	struct creator {
-		template<typename RT>
-		inline static typename Type_If<HasDefCon<AT>::value,RT *>::type
-			create() { return new AT(); }
-
-		template<typename RT>
-		inline static typename Type_If<!HasDefCon<AT>::value,RT *>::type
-			create() { return nullptr; }
-	};
 
 	// information about XML tags
 	struct XMLTagInfo {
@@ -902,7 +896,7 @@ namespace XMLSERIALNAMESPACE {
 
 // macro to automatically define "IsShiftable" and basic type info
 // for "base types" (like int, double, char)
-#define XMLSERIAL__BASETYPE(tname,strname) \
+#define XMLSERIAL_BASICTYPE(tname,strname) \
 	template<> \
 	struct IsShiftable<tname,void> { \
 		XMLSERIAL_DECVAL(atall,true) \
@@ -934,7 +928,7 @@ namespace XMLSERIALNAMESPACE {
 
 	template<typename T,typename Condition=void>
 	struct TypeInfo {
-		enum { x = sizeof(T::__Attempting_to_serialize_type_without_serialization_information) };
+		enum { x = sizeof(T::_Attempting_to_serialize_type_without_serialization_information) };
 
 		inline static const char *namestr() {
 			throw streamexception("Streaming Error: type info asked about unknown class");
@@ -958,28 +952,28 @@ namespace XMLSERIALNAMESPACE {
 	};
 
 	// These were moved upward to avoid ambiguity.
-	XMLSERIAL__BASETYPE(bool,bool)
+	XMLSERIAL_BASICTYPE(bool,bool)
 
-	XMLSERIAL__BASETYPE(char,char)
-	XMLSERIAL__BASETYPE(signed char,s_char)
-	XMLSERIAL__BASETYPE(unsigned char,u_char)
-	//XMLSERIAL__BASETYPE(wchar_t,w_char)
+	XMLSERIAL_BASICTYPE(char,char)
+	XMLSERIAL_BASICTYPE(signed char,s_char)
+	XMLSERIAL_BASICTYPE(unsigned char,u_char)
+	//XMLSERIAL_BASICTYPE(wchar_t,w_char)
 
-	XMLSERIAL__BASETYPE(short,short)
-	XMLSERIAL__BASETYPE(unsigned short,u_short)
-	XMLSERIAL__BASETYPE(int,int)
-	XMLSERIAL__BASETYPE(unsigned int,u_int)
-	XMLSERIAL__BASETYPE(long,long)
-	XMLSERIAL__BASETYPE(unsigned long,u_long)
-	XMLSERIAL__BASETYPE(float,float)
-	XMLSERIAL__BASETYPE(double,double)
-	XMLSERIAL__BASETYPE(long double,l_double)
+	XMLSERIAL_BASICTYPE(short,short)
+	XMLSERIAL_BASICTYPE(unsigned short,u_short)
+	XMLSERIAL_BASICTYPE(int,int)
+	XMLSERIAL_BASICTYPE(unsigned int,u_int)
+	XMLSERIAL_BASICTYPE(long,long)
+	XMLSERIAL_BASICTYPE(unsigned long,u_long)
+	XMLSERIAL_BASICTYPE(float,float)
+	XMLSERIAL_BASICTYPE(double,double)
+	XMLSERIAL_BASICTYPE(long double,l_double)
 
-#if __cplusplus > 199711L
-	//XMLSERIAL__BASETYPE(char16_t,char16)
-	//XMLSERIAL__BASETYPE(char32_t,char32)
-	XMLSERIAL__BASETYPE(long long,l_long)
-	XMLSERIAL__BASETYPE(unsigned long long,u_l_long)
+#if _cplusplus > 199711L
+	//XMLSERIAL_BASICTYPE(char16_t,char16)
+	//XMLSERIAL_BASICTYPE(char32_t,char32)
+	XMLSERIAL_BASICTYPE(long long,l_long)
+	XMLSERIAL_BASICTYPE(unsigned long long,u_l_long)
 #endif
 
 	template<typename T> // take care of const case...
@@ -1010,9 +1004,13 @@ namespace XMLSERIALNAMESPACE {
 	};
 
 
+}
+
+namespace XMLSERIALNAMESPACE {
 	// Saving method, general
 	template<typename T>
-	inline void SaveWrapper(const T &v,const char *vname,
+	inline typename Type_If<!PtrInfo<T>::isptr,void>::type
+	SaveWrapper(const T &v,const char *vname,
 			std::ostream &os,int indent) {
 		Indent(os,indent);
 		os << "<" << TypeInfo<T>::namestr();
@@ -1034,28 +1032,30 @@ namespace XMLSERIALNAMESPACE {
 
 	// Saving method, raw pointer, virtual
 	template<typename T>
-	inline typename Type_If<TypeProp<T>::HasV,void>::type
-	SaveWrapper(T * const &v, const char *vname,
+	inline typename Type_If<PtrInfo<T>::isptr
+			&& TypeProp<typename PtrInfo<T>::BaseType>::HasV, void>::type
+	SaveWrapper(const T &v, const char *vname,
 			std::ostream &os, int indent) {
-		if (v == nullptr) {
+		if (PtrInfo<T>::isnull(v)) {
 			Indent(os,indent);
-			os << "<" << TypeInfo<T>::namestr();
+			os << "<" << TypeInfo<typename PtrInfo<T>::BaseType>::namestr();
 			if (vname && vname[0]!=0) os << " name=\"" << vname << "\"";
 			os << " isnull=\"1\" \\>" << std::endl;
-		} else v->SaveV(os,vname,indent);
+		} else PtrInfo<T>::deref_const(v).SaveV(os,vname,indent);
 	}
 
 	// Saving method, raw pointer, non-virtual
 	template<typename T>
-	inline typename Type_If<!TypeProp<T>::HasV,void>::type
-	SaveWrapper(T * const &v, const char *vname,
+	inline typename Type_If<PtrInfo<T>::isptr
+			&& !TypeProp<typename PtrInfo<T>::BaseType>::HasV,void>::type
+	SaveWrapper(const T &v, const char *vname,
 			std::ostream &os, int indent) {
-		if (v == nullptr) {
+		if (PtrInfo<T>::isnull(v)) {
 			Indent(os,indent);
-			os << "<" << TypeInfo<T>::namestr();
+			os << "<" << TypeInfo<typename PtrInfo<T>::BaseType>::namestr();
 			if (vname && vname[0]!=0) os << " name=\"" << vname << "\"";
 			os << " isnull=\"1\" \\>" << std::endl;
-		} else SaveWrapper(*v,vname,os,indent);
+		} else SaveWrapper(PtrInfo<T>::deref_const(v),vname,os,indent);
 	}
 
 	// Saving, with extra arguments ("key" and "value" in map, e.g.)
@@ -1089,54 +1089,57 @@ namespace XMLSERIALNAMESPACE {
 
 	// general Load
 	template<typename T>
-	inline void LoadWrapper(T &v, const XMLTagInfo &info, std::istream &is) {
+	inline typename Type_If<!PtrInfo<T>::isptr,void>::type
+	LoadWrapper(T &v, const XMLTagInfo &info, std::istream &is) {
 		CheckTag<T>::check(info);
 		TypeInfo<T>::load(v,info,is);
 	}
 
 	// Load, pointer, virtual
 	template<typename T>
-	inline typename Type_If<TypeProp<T>::HasV,void>::type
-	LoadWrapper(T *&v, const XMLTagInfo &info, std::istream &is) {
+	inline typename Type_If<PtrInfo<T>::isptr
+			&& TypeProp<typename PtrInfo<T>::BaseType>::HasV,void>::type
+	LoadWrapper(T &v, const XMLTagInfo &info, std::istream &is) {
 		if (!info.isstart)
 			throw streamexception(std::string("Stream Input Format Error: expected start tag, received end tag for ")+info.name);
 		std::map<std::string,std::string>::const_iterator vi
 			=info.attr.find("isnull");
 		if (vi!=info.attr.end() && vi->second=="1") {
-			v = nullptr;
+			PtrInfo<T>::setnull(v);
 			if (!info.isend) {
 				XMLTagInfo einfo;
 				ReadTag(is,einfo);
 				if (einfo.name!=info.name || !info.isend || info.isstart)
-					throw streamexception(std::string("Stream Input Format Error: null pointer object for type ")+TypeInfo<T>::namestr()+" and name "+info.name+" has non-empty contents");
+					throw streamexception(std::string("Stream Input Format Error: null pointer object for type ")+TypeInfo<typename PtrInfo<T>::BaseType>::namestr()+" and name "+info.name+" has non-empty contents");
 			}
 			return;
 		}
-		T *vv = T::xmlserial__valloc::allocbyname(info.name);
-		if (vv == nullptr)
-			throw streamexception(std::string("Stream Input Format Error: expected start tag for subtype of ")+TypeInfo<T>::namestr()+", received start tag for type "+info.name+" which is either unknown or not a subtype");
-		v = vv;
-		v->xmlserial__loadwrapv(is,info);
+		PtrInfo<T>::BaseType::xmlserial_valloc::allocbyname(info.name,v);
+		if (PtrInfo<T>::isnull(v))
+			throw streamexception(std::string("Stream Input Format Error: expected start tag for subtype of ")+TypeInfo<typename PtrInfo<T>::BaseType>::namestr()+", received start tag for type "+info.name+" which is either unknown or not a subtype");
+		//PtrInfo<T>::setraw(v,vv);
+		PtrInfo<T>::deref(v).xmlserial_loadwrapv(is,info);
 	}
 
 	// Load, pointer, non-virtual
 	template<typename T>
-	inline typename Type_If<!TypeProp<T>::HasV,void>::type
-	LoadWrapper(T *&v, const XMLTagInfo &info, std::istream &is) {
+	inline typename Type_If<PtrInfo<T>::isptr
+			&& !TypeProp<typename PtrInfo<T>::BaseType>::HasV,void>::type
+	LoadWrapper(T &v, const XMLTagInfo &info, std::istream &is) {
 		std::map<std::string,std::string>::const_iterator vi
 			=info.attr.find("isnull");
 		if (vi!=info.attr.end() && vi->second=="1") {
-			v = nullptr;
+			PtrInfo<T>::setnull(v);
 			if (!info.isend) {
 				XMLTagInfo einfo;
 				ReadTag(is,einfo);
 				if (einfo.name!=info.name || !info.isend || info.isstart)
-					throw streamexception(std::string("Stream Input Format Error: null pointer object for type ")+TypeInfo<T>::namestr()+" and name "+info.name+" has non-empty contents");
+					throw streamexception(std::string("Stream Input Format Error: null pointer object for type ")+TypeInfo<typename PtrInfo<T>::BaseType>::namestr()+" and name "+info.name+" has non-empty contents");
 			}
 			return;
 		}
-		v = new T();
-		LoadWrapper(*v,info,is);
+		PtrInfo<T>::allocnew(v);
+		LoadWrapper(PtrInfo<T>::deref(v),info,is);
 	}
 
 	// Load, first read tag
@@ -1154,7 +1157,7 @@ namespace XMLSERIALNAMESPACE {
 	inline typename Type_If<!TypeProp<T>::HasPreLoad
 						&& !TypeProp<T>::HasPostLoad,void>::type
 	SerialLoadWrap(T &t, std::istream &is) {
-		t.xmlserial__Load(is);
+		t.xmlserial_Load(is);
 	}
 
 	template<typename T>
@@ -1162,14 +1165,14 @@ namespace XMLSERIALNAMESPACE {
 						&& !TypeProp<T>::HasPostLoad,void>::type
 	SerialLoadWrap(T &t, std::istream &is) {
 		t.xmlserial_preload();
-		t.xmlserial__Load(is);
+		t.xmlserial_Load(is);
 	}
 
 	template<typename T>
 	inline typename Type_If<!TypeProp<T>::HasPreLoad
 						&& TypeProp<T>::HasPostLoad,void>::type
 	SerialLoadWrap(T &t, std::istream &is) {
-		t.xmlserial__Load(is);
+		t.xmlserial_Load(is);
 		t.xmlserial_postload();
 	}
 
@@ -1178,7 +1181,7 @@ namespace XMLSERIALNAMESPACE {
 						&& TypeProp<T>::HasPostLoad,void>::type
 	SerialLoadWrap(T &t, std::istream &is) {
 		t.xmlserial_preload();
-		t.xmlserial__Load(is);
+		t.xmlserial_Load(is);
 		t.xmlserial_postload();
 	}
 
@@ -1186,7 +1189,7 @@ namespace XMLSERIALNAMESPACE {
 	inline typename Type_If<!TypeProp<T>::HasPreSave
 						&& !TypeProp<T>::HasPostSave,void>::type
 	SerialSaveWrap(const T &t, std::ostream &os, int indent) {
-		t.xmlserial__Save(os,indent);
+		t.xmlserial_Save(os,indent);
 	}
 
 	template<typename T>
@@ -1194,14 +1197,14 @@ namespace XMLSERIALNAMESPACE {
 						&& !TypeProp<T>::HasPostSave,void>::type
 	SerialSaveWrap(const T &t, std::ostream &os, int indent) {
 		t.xmlserial_presave();
-		t.xmlserial__Save(os,indent);
+		t.xmlserial_Save(os,indent);
 	}
 
 	template<typename T>
 	inline typename Type_If<!TypeProp<T>::HasPreSave
 						&& TypeProp<T>::HasPostSave,void>::type
 	SerialSaveWrap(const T &t, std::ostream &os, int indent) {
-		t.xmlserial__Save(os,indent);
+		t.xmlserial_Save(os,indent);
 		t.xmlserial_postsave();
 	}
 
@@ -1210,7 +1213,7 @@ namespace XMLSERIALNAMESPACE {
 						&& TypeProp<T>::HasPostSave,void>::type
 	SerialSaveWrap(const T &t, std::ostream &os, int indent) {
 		t.xmlserial_presave();
-		t.xmlserial__Save(os,indent);
+		t.xmlserial_Save(os,indent);
 		t.xmlserial_postsave();
 	}
 
@@ -1235,7 +1238,7 @@ namespace XMLSERIALNAMESPACE {
 // ... or ones that are "shiftable"
 	template<typename T>
 	struct TypeInfo<T, typename Type_If<TypeProp<T>::HasShift,void>::type> {
-		inline static const char *namestr() { return T::xmlserial__shiftname(); }
+		inline static const char *namestr() { return T::xmlserial_shiftname(); }
 		inline static void writeotherattr(std::ostream &, const T &) {}
 		inline static bool isshort(const T &) { return T::XMLSERIAL_ISSHORT; }
 		inline static bool isinline(const T &) { return false; }
@@ -1309,4 +1312,33 @@ namespace XMLSERIALNAMESPACE {
 
 
 }
+#undef XMLSERIAL_DECVAL
+/*
+#undef XMLSERIAL_GETTERCOMMON
+#undef XMLSERIAL_GETTERSTRUCT
+#undef XMLSERIAL_GETTERSTRUCT_DEFAULT
+#undef XMLSERIAL_NOTV_COMMON
+#undef XMLSERIAL_V_COMMON
+#undef XMLSERIAL_NAME0
+#undef XMLSERIAL_NAME1
+#undef XMLSERIAL_NAME2
+#undef XMLSERIAL_NAME3
+#undef XMLSERIAL_NAME4
+#undef XMLSERIAL_SNAME0
+#undef XMLSERIAL_SNAME1
+#undef XMLSERIAL_SNAME2
+#undef XMLSERIAL_SNAME3
+#undef XMLSERIAL_SNAME4
+#undef XMLSERIAL_ID0
+#undef XMLSERIAL_ID1
+#undef XMLSERIAL_ID2
+#undef XMLSERIAL_ID3
+#undef XMLSERIAL_ID4
+#undef XMLSERIAL_ID0_V
+#undef XMLSERIAL_ID1_V
+#undef XMLSERIAL_ID2_V
+#undef XMLSERIAL_ID3_V
+#undef XMLSERIAL_ID4_V
+*/
+
 #endif

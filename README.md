@@ -43,7 +43,7 @@ private:
 
 Somewhere in the class declaration, include the macro "XMLSERIAL_START" with the argument of the class name.  Then, list the member variables to be serialized with "XMLSERIAL_VAR" which takes two arguments: the member type and the member name.  Finally, finish the serialization declarations with "XMLSERIAL_END" (which takes no arguments.  The XMLSERIAL_END macro leaves the code in the "public:" state.  However, to be safe, you should always place a "public:" "private:" or "protected:" right after it.
 
-*Note:* If you put a semicolon (;) after one of the macros, you will see strange compile error (usually something about how "xmlserial__xxxxlst" does not name a type).  Don't do this :)
+*Note:* If you put a semicolon (;) after one of the macros, you will see strange compile error (usually something about how "xmlserial_xxxxlst" does not name a type).  Don't do this :)
 
 The order of the member list in the "XMLSERIAL_" section will dictate the order in which they are written to the output.  However, input can be organized in any order!  The members themselves can be declared in any order.
 

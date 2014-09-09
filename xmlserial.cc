@@ -230,6 +230,7 @@ namespace XMLSERIALNAMESPACE {
 		return ret;
 	}
 
+/*
 	typedef std::map<std::string,createfntype> allocmaptype;
 
 	allocmaptype &alloctable() {
@@ -249,4 +250,5 @@ namespace XMLSERIALNAMESPACE {
 		}
 		else return i->second();
 	}
+*/
 }
