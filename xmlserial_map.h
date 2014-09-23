@@ -36,21 +36,25 @@ namespace XMLSERIALNAMESPACE {
 	template<typename K,typename T,typename C, typename A>
 	struct TypeInfo<std::map<K,T,C,A>, void> {
 		inline static const char *namestr() { return "map"; }
-		inline static void writeotherattr(std::ostream &,const std::map<K,T,C,A> &) { }
+		template<typename S>
+		inline static void addotherattr(XMLTagInfo &,const std::map<K,T,C,A> &,S &) { }
 		inline static bool isshort(const std::map<K,T,C,A> &) { return false; }
 		inline static bool isinline(const std::map<K,T,C,A> &) { return false; }
+		template<typename S>
 		inline static void save(const std::map<K,T,C,A> m,
-				std::ostream &os,int indent) {
+				S &os,int indent) {
 			os << std::endl;
 			int c=0;
 			for(typename std::map<K,T,C,A>::const_iterator i=m.begin();
 					i!=m.end();++i,++c) {
-				SaveWrapper(*i,"",os,indent+1,"key","value");
+				XMLTagInfo fields;
+				SaveWrapper(*i,fields,os,indent+1,"key","value");
 			}
 			Indent(os,indent);
 		}
+		template<typename S>
 		inline static void load(std::map<K,T,C,A> &m, const XMLTagInfo &info,
-				std::istream &is) {
+				S &is) {
 			m.clear();
 			XMLTagInfo eleminfo;
 			int i=0;

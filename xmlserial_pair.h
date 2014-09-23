@@ -38,18 +38,25 @@ namespace XMLSERIALNAMESPACE {
 				typename Type_If<!IsShiftable<T1>::quickly
 						|| !IsShiftable<T2>::quickly,void>::type> {
 		inline static const char *namestr() { return "pair"; }
-		inline static void writeotherattr(std::ostream &, const std::pair<T1,T2> &,
-				const char * fn = nullptr, const char * sn = nullptr) {
+		template<typename S>
+		inline static void addotherattr(XMLTagInfo &,
+			const std::pair<T1,T2> &, S &,
+			const char * fn = nullptr, const char * sn = nullptr) {
 		}
 		inline static bool isshort(const std::pair<T1,T2> &) { return false; }
 		inline static bool isinline(const std::pair<T1,T2> &) { return false; }
+		template<typename S>
 		inline static void save(const std::pair<T1,T2> &p,
-				std::ostream &os,int indent,
+				S &os,int indent,
 				const char *firstname= "first",
 				const char *secondname="second") {
 			os << std::endl;
-			SaveWrapper(p.first,firstname,os,indent+1);
-			SaveWrapper(p.second,secondname,os,indent+1);
+			XMLTagInfo firstfields;
+			firstfields.attr["name"] = firstname;
+			SaveWrapper(p.first,firstfields,os,indent+1);
+			XMLTagInfo secondfields;
+			secondfields.attr["name"] = secondname;
+			SaveWrapper(p.second,secondfields,os,indent+1);
 			Indent(os,indent);
 		}
 
@@ -76,8 +83,9 @@ namespace XMLSERIALNAMESPACE {
 
 		typedef List<Get1,List<Get2,ListEnd> > PList;
 
+		template<typename S>
 		inline static void load(std::pair<T1,T2> &p,
-				const XMLTagInfo &info, std::istream &is,
+				const XMLTagInfo &info, S &is,
 				const char *firstname = "first",
 				const char *secondname = "second") {
 			PName pn(p,firstname,secondname);
@@ -96,22 +104,32 @@ namespace XMLSERIALNAMESPACE {
 				+"."+TypeInfo<T2>::namestr();
 			return ret.c_str();
 		}
-		inline static void writeotherattr(std::ostream &os, const std::pair<T1,T2> &p,
+		template<typename S>
+		inline static void addotherattr(XMLTagInfo &fields,
+						const std::pair<T1,T2> &p, S &os,
 				const char *firstname="first",
 				const char *secondname="second") {
-			os << " " << firstname << "=\"" << p.first << "\" "
-				<< secondname << "=\"" << p.second << "\"";
+			std::ostringstream ss1;
+			dupfmt(ss1,os);
+			ss1 << p.first;
+			std::ostringstream ss2;
+			dupfmt(ss2,os);
+			ss2 << p.second;
+			fields.attr[firstname] = ss1.str();
+			fields.attr[secondname] = ss2.str();
 		}
 		inline static bool isshort(const std::pair<T1,T2> &) { return false; }
 		inline static bool isinline(const std::pair<T1,T2> &) { return true; }
+		template<typename S>
 		inline static void save(const std::pair<T1,T2> &p,
-				std::ostream &os,int indent,
+				S &os,int indent,
 				const char *firstname= "first",
 				const char *secondname="second") {
 		}
 
+		template<typename S>
 		inline static void load(std::pair<T1,T2> &p,
-				const XMLTagInfo &info, std::istream &is,
+				const XMLTagInfo &info, S &is,
 				const char *firstname = "first",
 				const char *secondname = "second") {
 			std::map<std::string,std::string>::const_iterator vi

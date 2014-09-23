@@ -38,6 +38,10 @@
 #include <typeinfo>
 #include <cstdarg>
 #include <utility>
+#include <map>
+#include <set>
+#include <string.h>
+
 
 #ifndef XMLSERIALNAMESPACE
 #define XMLSERIALNAMESPACE xmlserial
@@ -52,7 +56,9 @@
 #define nullptr (0)
 #endif
 
+#include "xmlserial_tmp.h"
 #include "xmlserial_ptrs.h"
+#include "xmlserial_archive.h"
 
 namespace XMLSERIALNAMESPACE {
 
@@ -70,6 +76,15 @@ namespace XMLSERIALNAMESPACE {
 	private:
 		std::string expl;
 	};
+
+	// from s2 to s1!
+	template<typename S1, typename S2>
+	void dupfmt(S1 &s1, S2 &s2) {
+		s1.flags(s2.flags());
+		s1.precision(s2.precision());
+		s1.width(s2.width());
+		s1.imbue(s2.getloc());
+	}
 
 }
 
@@ -147,16 +162,28 @@ namespace XMLSERIALNAMESPACE {
 			} \
 		}; \
 	public: \
-		virtual void SaveV(std::ostream &os, const char *name="", int indent=0) const { \
-			Save(os,name,indent); \
+		virtual void SaveV(std::ostream &os, \
+				XMLSERIALNAMESPACE::XMLTagInfo &fields, \
+				int indent=0) const { \
+			Save(os,fields,indent); \
 		} \
-		inline static XMLSERIAL_BASETYPE *LoadV(std::istream &is) { \
+		virtual void SaveV(XMLSERIALNAMESPACE::archive &oa, \
+				XMLSERIALNAMESPACE::XMLTagInfo &fields, \
+				int indent=0) const { \
+			Save(oa,fields,indent); \
+		} \
+		template<typename S> \
+		inline static XMLSERIAL_BASETYPE *LoadV(S &is) { \
 			XMLSERIAL_BASETYPE *ret; XMLSERIALNAMESPACE::LoadWrapper(ret,is); \
 			return ret; \
 		} \
 		virtual void xmlserial_loadwrapv(std::istream &is, \
 					const XMLSERIALNAMESPACE::XMLTagInfo &info) { \
 			XMLSERIALNAMESPACE::LoadWrapper(*this,info,is); \
+		} \
+		virtual void xmlserial_loadwrapv(XMLSERIALNAMESPACE::archive &ia, \
+					const XMLSERIALNAMESPACE::XMLTagInfo &info) { \
+			XMLSERIALNAMESPACE::LoadWrapper(*this,info,ia); \
 		}
 
 #define XMLSERIAL_SUPER_COMMON(cname) \
@@ -572,20 +599,30 @@ namespace XMLSERIALNAMESPACE {
     public: \
         typedef xmlserial_tmp_alllist xmlserial_alllist; \
         typedef xmlserial_vallocT<XMLSERIAL_BASETYPE,true> xmlserial_valloc; \
-        inline void xmlserial_Save(std::ostream &os, int indent=0) const { \
+        template<typename S> \
+        inline void xmlserial_Save(S &os, int indent=0) const { \
             XMLSERIALNAMESPACE::SaveItt<xmlserial_alllist>::exec(this,os,indent); } \
-        inline void Save(std::ostream &os, const char *name="", \
-                        int indent=0) const { \
-            XMLSERIALNAMESPACE::SaveWrapper(*this,name,os,indent); \
+        template<typename S> \
+        inline void Save(S &os, XMLSERIALNAMESPACE::XMLTagInfo &fields, \
+				int indent=0) const { \
+            XMLSERIALNAMESPACE::SaveWrapper(*this,fields,os,indent); \
         } \
-        inline void xmlserial_Load(std::istream &is) { \
+        template<typename S> \
+        inline void Save(S &os, int indent=0) const { \
+		XMLSERIALNAMESPACE::XMLTagInfo fields; \
+            XMLSERIALNAMESPACE::SaveWrapper(*this,fields,os,indent); \
+        } \
+        template<typename S> \
+        inline void xmlserial_Load(S &is) { \
             XMLSERIALNAMESPACE::LoadList<xmlserial_alllist>::exec \
                 (this,is,xmlserial_IDname()); \
         } \
-        inline void Load(std::istream &is) { \
+        template<typename S> \
+        inline void Load(S &is) { \
             XMLSERIALNAMESPACE::LoadWrapper(*this,is); \
         } \
-        inline static XMLSERIAL_BASETYPE *LoadPtr(std::istream &is) { \
+        template<typename S> \
+        inline static XMLSERIAL_BASETYPE *LoadPtr(S &is) { \
             XMLSERIAL_BASETYPE *ret; \
             XMLSERIALNAMESPACE::LoadWrapper(ret,is); \
             return ret; \
@@ -595,123 +632,258 @@ namespace XMLSERIALNAMESPACE {
 // implementation (templated part)
 //------------------------------------
 
-#include <map>
-#include <set>
 
 namespace XMLSERIALNAMESPACE {
+	template<typename S>
+	void WriteStr(S &os, const std::string &s,bool escape=true);
 
-	char *TName(const char *cname, int n, ...);
-	void Indent(std::ostream &os, int indent);
-	//void *AllocByName(const std::string &name);
-	//typedef void *(*createfntype)(void);
-	//const char *AddAlloc(const char *name, createfntype fn);
+	// helpful formatting fn
+	template<typename S>
+	void Indent(S &os, int indent) {
+		for(int i=0;i<indent;i++) os << "\t";
+	}
 
-	// a simple list:
-	struct ListEnd {};
+	// information about XML tags
+	struct XMLTagInfo {
+		std::string name;
+		std::map<std::string,std::string> attr;
+		bool isstart,isend;
 
-	template<typename H, typename T>
-		struct List {};
-
-	// pretty standard enable_if template (see Boost, for example)
-	// (included here so as not to reply on boost or c++11)
-	// (called Type_If to avoid confusion, and really this is a more
-	//  descriptive name: it gives a type if the condition holds)
-	template<bool B, typename T>
-	struct Type_If {
-		typedef T type;
-	};
-	template<typename T>
-	struct Type_If<false,T> {
-	};
-
-
-	// properties of type T:
-	// This one has appeared in one form or another all over the
-	// internet, adapted only slightly here
-	template<typename T>
-	struct TypeProp {
-		template<typename C, C> struct type_check;
-
-		template<typename S> static char
-			(& chksave(type_check<void (S::*)(std::ostream&,int),
-					 &S::xmlserial_Save>*))[1];
-		template<typename> static char (& chksave(...))[2];
-		XMLSERIAL_DECVAL(HasSave,sizeof(chksave<T>(0)) == 1)
-
-		template<typename S> static char
-			(& chkid(type_check<const char *(*)(),
-						&S::xmlserial_IDname>*))[1];
-		template<typename> static char
-			(& chkid(...))[2];
-		XMLSERIAL_DECVAL(HasIDname,sizeof(chkid<T>(0)) == 1)
-
-		template<typename S> static char
-			(& chkshift(type_check<const char *(*)(),
-						&S::xmlserial_shiftname>*))[1];
-		template<typename> static char
-			(& chkshift(...))[2];
-		XMLSERIAL_DECVAL(HasShift,sizeof(chkshift<T>(0)) == 1)
-
-		template<typename S> static char
-			(& chkdef(type_check<void (*)(typename S::valtype &),
-					&S::setdefault>*))[1];
-		template<typename> static char
-			(& chkdef(...))[2];
-		XMLSERIAL_DECVAL(HasDefault,sizeof(chkdef<T>(0)) == 1)
-
-		template<typename S> static char
-			(& chkv(type_check<T *(*)(std::istream &),
-				   &S::LoadV>*))[1];
-		template<typename> static char
-			(& chkv(...))[2];
-		XMLSERIAL_DECVAL(HasV,sizeof(chkv<T>(0)) == 1)
-
-		template<typename S> static char
-			(& chkpreload(type_check<void (S::*)(void),
-					    &S::xmlserial_preload>*))[1];
-		template<typename> static char
-			(& chkpreload(...))[2];
-		XMLSERIAL_DECVAL(HasPreLoad,sizeof(chkpreload<T>(0)) == 1)
-
-		template<typename S> static char
-			(& chkpostload(type_check<void (S::*)(void),
-						&S::xmlserial_postload>*))[1];
-		template<typename> static char
-			(& chkpostload(...))[2];
-		XMLSERIAL_DECVAL(HasPostLoad,sizeof(chkpostload<T>(0)) == 1)
-
-			template<typename S> static char
-			(& chkpresave(type_check<void (S::*)(void) const,
-					    &S::xmlserial_presave>*))[1];
-		template<typename> static char
-			(& chkpresave(...))[2];
-		XMLSERIAL_DECVAL(HasPreSave,sizeof(chkpresave<T>(0)) == 1)
-
-		template<typename S> static char
-			(& chkpostsave(type_check<void (S::*)(void) const,
-						&S::xmlserial_postsave>*))[1];
-		template<typename> static char
-			(& chkpostsave(...))[2];
-		XMLSERIAL_DECVAL(HasPostSave,sizeof(chkpostsave<T>(0)) == 1)
-
-		//enum { BlankList = SameType<ListEnd,typename T::xmlserial_alllist>::value };
+		template<typename S>
+		void write(S &os, int indent) const {
+			if (isstart) {
+				Indent(os,indent);
+				os << "<" << name;
+				for(std::map<std::string,std::string>::const_iterator i
+							= attr.begin(); i!=attr.end();++i) {
+					os << ' ';
+					WriteStr(os,i->first);
+					os << "=\"";
+					WriteStr(os,i->second);
+					os << "\"";
+				}
+				if (isend) os << " \\>" << std::endl;
+				else os << ">";
+			} else {
+				os << "<\\" << name << ">" << std::endl;
+			}
+		}
 	};
 
-	// Whether it has a default constructor (why not above?  I don't know)
-	template<typename T>
-	struct HasDefCon {
-		struct small { char x[1]; };
-		struct large { char x[2]; };
-		template<typename U>
-			static small chk(U (*)[1]);
-		template<typename U>
-			static large chk(...);
-		//XMLSERIAL_DECVAL(value,sizeof(HasDefCon<T>::template chk<T>(0))==sizeof(small))
-		XMLSERIAL_DECVAL(value,sizeof(chk<T>(0))==sizeof(small))
-	};
+	// forward decls
+	template<typename G> struct SaveItem;
+	template<typename L> struct LoadList;
+	template<typename S>
+	void ReadTag(S &is,XMLTagInfo &info);
+	template<typename S>
+	void ReadEndTag(S &is,const char *ename);
+	template<typename S>
+	void ReadStr(S &is, std::string &ret,const char *endchar);
 
 
-	// whether a list (as defined above) is empty
+	template<typename S>
+	void IgnoreWS(S &is) {
+		while(1) {
+			char c = is.peek();
+			if (is.fail() || !isspace(c)) return;
+			is.get();
+		}
+	}
+
+
+	template<typename S>
+	char ReadEscChar(S &is) {
+		char c=is.get();
+		switch(c) {
+			case '\\': return '\\';
+			case 'a': return '\a';
+			case 'b': return '\b';
+			case 'f': return '\f';
+			case 'n': return '\n';
+			case 'r': return '\r';
+			case 't': return '\t';
+			case 'v': return '\v';
+			default: return c;
+		}
+	}
+
+	template<typename S>
+	bool ConsumeToken(S &is, const char *tok) {
+		int i;
+		for(i=0;tok[i]!=0 && tok[i]==is.get();i++)
+			;
+		if (tok[i]==0) return true;
+		for(;i>=0;i--)
+			is.unget();
+		return false;
+	}
+
+	template<typename S>
+	char ReadAmpChar(S &is) {
+		if (ConsumeToken(is,"quot;")) return '"';
+		if (ConsumeToken(is,"amp;")) return '&';
+		if (ConsumeToken(is,"apos;")) return '\'';
+		if (ConsumeToken(is,"lt;")) return '<';
+		if (ConsumeToken(is,"gt;")) return '>';
+		return '&';
+	}
+
+	template<typename S>
+	void ReadToken(S &is, std::string &ret) {
+		ret.clear();
+		IgnoreWS(is);
+		bool isquoted = is.peek()=='"';
+		if (isquoted) is.get();
+		ReadStr(is,ret,isquoted ? "\"" : " \t\n\r\v>\\=");
+		if (isquoted) is.get();
+	}
+
+	inline bool charin(const char *endchar,char c) {
+		return strchr(endchar,c) != nullptr;
+	}
+
+	template<typename S>
+	void ReadStr(S &is, std::string &ret,const char *endchar) {
+		ret.clear();
+		while(char c=is.peek()) {
+			if (charin(endchar,c)) return;
+			is.get();
+			if (is.fail()) return;
+			if (c=='\\') c = ReadEscChar(is);
+			else if (c=='&') c = ReadAmpChar(is);
+			ret.push_back(c);
+		}
+	}
+
+	template<typename S>
+	void WriteStr(S &os, const std::string &s,bool escape) {
+		for(std::string::const_iterator i=s.begin();i!=s.end();++i) {
+			switch(*i) {
+				case '"':
+				    os << "&quot;";
+				    break;
+				case '&':
+				    os << "&amp;";
+				    break;
+				case '\'':
+				    os << "&apos;";
+				    break;
+				case '<':
+				    os << "&lt;";
+				    break;
+				case '>':
+				    os << "&gt;";
+				    break;
+				case '\\':
+				    os << "\\\\";
+				    break;
+				case '\a':
+				    (escape ? (os << '\\' << 'a') : (os << '\a'));
+					break;
+				case '\b':
+				    (escape ? (os << '\\' << 'b') : (os << '\b'));
+					break;
+				case '\f':
+				    (escape ? (os << '\\' << 'f') : (os << '\f'));
+					break;
+				case '\n':
+				    (escape ? (os << '\\' << 'n') : (os << '\n'));
+					break;
+				case '\r':
+				    (escape ? (os << '\\' << 'r') : (os << '\r'));
+					break;
+				case '\t':
+				    (escape ? (os << '\\' << 't') : (os << '\t'));
+					break;
+				case '\v':
+				    (escape ? (os << '\\' << 'v') : (os << '\v'));
+					break;
+				default:
+				    os << *i;
+				    break;
+			}
+		}
+	}
+
+
+	template<typename S>
+	void ReadTag(S &is,XMLTagInfo &info) {
+		info.attr.clear();
+		IgnoreWS(is);
+		char c = is.get();
+		if (is.fail() || c!='<') throw streamexception("Stream Input Format Error:  expected <");
+		if (is.peek()=='\\') {
+			info.isstart=false;
+			info.isend=true;
+			is.get();
+		} else {
+			info.isstart=true;
+			info.isend=false;
+		}
+		ReadToken(is,info.name);
+		IgnoreWS(is);
+		if (info.isend) {
+			if (is.get()=='>') return;
+			throw streamexception("Stream Input Format Error:  expected >");
+		}
+		while(!is.fail()) {
+			char c = is.peek();
+			if (c=='\\') {
+				is.get();
+				info.isend=true;
+				if (is.get()=='>') return;
+				throw streamexception("Stream Input Format Error:  expected >");
+			}
+			if (c=='>') {
+				is.get();
+				return;
+			}
+			std::string aname;
+			ReadToken(is,aname);
+			if (aname.empty()) 
+				throw streamexception("Stream Input Format Error: tag missing name");
+			IgnoreWS(is);
+			if (is.peek()=='=') {
+				is.get();
+				std::string aval;
+				ReadToken(is,aval);
+				info.attr[aname] = aval;
+			} else {
+				info.attr[aname] = "1";
+			}
+			IgnoreWS(is);
+		}
+		throw streamexception("Stream Input Format Error: unexpected stream end");
+	}
+
+	template<typename S>
+	void ReadEndTag(S &is,const char *ename) {
+	    XMLTagInfo einfo;
+		ReadTag(is,einfo);
+		if (!einfo.isend || einfo.name!=ename)
+			throw streamexception(std::string("Stream Input Format Error: expected end tag for ")+ename+", received "+(einfo.isend ? "end" : "start")+" tag for "+einfo.name);
+	}
+
+	// How to construct a name for a template class
+	inline char *TName(const char *cname, int n, ...) {
+		int s = strlen(cname)+1;
+		va_list ap;
+		va_start(ap,n);
+		for(int i=0;i<n;i++)
+			s += strlen(va_arg(ap,const char *))+1;
+		va_end(ap);
+		char *ret = new char[s];
+		strcpy(ret,cname);
+		va_start(ap,n);
+		for(int i=0;i<n;i++) {
+			strcat(ret, "."); // slightly inefficient to keep scanning
+			strcat(ret, va_arg(ap,const char *)); // for the end, but much
+				// more readable
+		}
+		return ret;
+	}
+
+	// whether a list (as defined in xmlserial_tmp.h) is empty
 	template<typename L>
 	struct ListEmpty {
 		XMLSERIAL_DECVAL(value,false)
@@ -742,34 +914,21 @@ namespace XMLSERIALNAMESPACE {
 
 
 
-	// information about XML tags
-	struct XMLTagInfo {
-		std::string name;
-		std::map<std::string,std::string> attr;
-		bool isstart,isend;
-	};
 
-	// forward decls
-	template<typename G> struct SaveItem;
-	template<typename L> struct LoadList;
-	void ReadTag(std::istream &is,XMLTagInfo &info);
-	void ReadEndTag(std::istream &is,const char *ename);
-	void ReadStr(std::istream &is, std::string &ret,const char *endchar);
-	void WriteStr(std::ostream &os, const std::string &s,bool escape=true);
 
 	// a reverse iterator on a list for saving
 	// runs SaveItem on each element in list
 	template<typename L,typename Condition=void>
 	struct SaveItt {
-		template<typename O>
-		inline static void exec(O o,std::ostream &os,int indent) { }
+		template<typename O, typename S>
+		inline static void exec(O o,S &os,int indent) { }
 	};
 
 	template<typename H, typename T>
 	struct SaveItt<List<H,T>,
 	typename Type_If<!IsEmpty<typename H::valtype>::value,void>::type> {
-		template<typename O>
-		inline static void exec(O o,std::ostream &os,int indent) {
+		template<typename O, typename S>
+		inline static void exec(O o,S &os,int indent) {
 				SaveItt<T>::exec(o,os,indent);
 				SaveItem<H>::exec(o,os,indent);
 		}
@@ -779,40 +938,40 @@ namespace XMLSERIALNAMESPACE {
 	struct SaveItt<List<H,T>,
 			typename Type_If<IsEmpty<typename H::valtype>::value,
 											void>::type> {
-		template<typename O>
-		inline static void exec(O o,std::ostream &os,int indent) {
+		template<typename O, typename S>
+		inline static void exec(O o,S &os,int indent) {
 			SaveItt<T>::exec(o,os,indent);
 		}
 	};
 
 	template<>
 	struct SaveItt<ListEnd,void> {
-		template<typename O>
-		inline static void exec(O o,std::ostream &os, int indent) { }
+		template<typename O, typename S>
+		inline static void exec(O o,S &os, int indent) { }
 	};
 
 
-	// Given an XMLTagInfo, find relevant membe and call LoadWrapper
+	// Given an XMLTagInfo, find relevant member and call LoadWrapper
 	template<typename L>
 	struct LoadOne {
-		template<typename O>
-		inline static bool exec(O o,std::istream &, const XMLTagInfo &) {
+		template<typename O, typename S>
+		inline static bool exec(O o,S &, const XMLTagInfo &) {
 			return false;
 		}
 	};
 
 	template<>
 	struct LoadOne<ListEnd> {
-		template<typename O>
-		inline static bool exec(O o,std::istream &, const XMLTagInfo &) {
+		template<typename O,typename S>
+		inline static bool exec(O o,S &, const XMLTagInfo &) {
 			return false;
 		}
 	};
 
 	template<typename H, typename T>
 	struct LoadOne<List<H,T> > {
-		template<typename O>
-		inline static bool exec(O o,std::istream &is,
+		template<typename O,typename S>
+		inline static bool exec(O o,S &is,
 				const XMLTagInfo &info) {
 			std::map<std::string,std::string>::const_iterator ni
 				=info.attr.find("name");
@@ -905,18 +1064,22 @@ namespace XMLSERIALNAMESPACE {
 	template<> \
 	struct TypeInfo<tname,void> { \
 		inline static const char *namestr() { return #strname; } \
-		inline static void writeotherattr(std::ostream &, const tname &) { } \
+		template<typename S> \
+		inline static void addotherattr(XMLTagInfo &fields, const tname &, \
+				S &) {}  \
 		inline static bool isshort(const tname &) { return true; } \
 		inline static bool isinline(const tname &) { return false; } \
-		inline static void save(const tname &t,std::ostream &os, int indent) { \
+		template<typename S> \
+		inline static void save(const tname &t,S &os, int indent) { \
 			os << t; \
 		} \
-		inline static void load(tname &t, const XMLTagInfo &info, std::istream &is) {\
+		template<typename S> \
+		inline static void load(tname &t, const XMLTagInfo &info, S &is) {\
 			std::map<std::string,std::string>::const_iterator vi  \
 			=info.attr.find("value"); \
 			if (vi!=info.attr.end()) { \
 				std::istringstream ss(vi->second); \
-				ss.copyfmt(is); \
+				dupfmt(ss,is); \
 				ss >> t; \
 				if (info.isend) return; \
 			} else { \
@@ -933,7 +1096,8 @@ namespace XMLSERIALNAMESPACE {
 		inline static const char *namestr() {
 			throw streamexception("Streaming Error: type info asked about unknown class");
 		}
-		inline static void writeotherattr(std::ostream &, const T &) {
+		template<typename S>
+		inline static void addotherattr(XMLTagInfo &fields, const T &,S &) { 
 			throw streamexception("Streaming Error: type info asked about unknown class");
 		}
 		inline static bool isshort(const T &)  {
@@ -942,11 +1106,12 @@ namespace XMLSERIALNAMESPACE {
 		inline static bool isinline(const T &)  {
 			throw streamexception("Streaming Error: type info asked about unknown class");
 		}
-		inline static void save(const T &t,std::ostream &os, int indent) {
+		template<typename S>
+		inline static void save(const T &t,S &os, int indent) {
 			throw streamexception("Streaming Error: save called for unknown class");
 		}
-		inline static void load(T &t, const XMLTagInfo &info,
-				std::istream &is) {
+		template<typename S>
+		inline static void load(T &t, const XMLTagInfo &info, S &is) {
 			throw streamexception("Streaming Error: load called for unknown class");
 		}
 	};
@@ -981,12 +1146,16 @@ namespace XMLSERIALNAMESPACE {
 		inline static const char *namestr() {
 			return TypeInfo<T>::namestr();
 		}
-		inline static void writeotherattr(std::ostream &os, const T &t) {
-			TypeInfo<T>::writeotherattr(os,t);
+		template<typename S>
+		inline static void addotherattr(XMLTagInfo &fields, const T &t,
+						S &os) { 
+			TypeInfo<T>::addotherattr(fields,t,os);
 		}
-		inline static void writeotherattr(std::ostream &os, const T &t,
+		template<typename S>
+		inline static void addotherattr(XMLTagInfo &fields, const T &t,
+				S &os,
 				const char *s1, const char *s2) {
-			TypeInfo<T>::otherattr(os,t,s1,s2);
+			TypeInfo<T>::addotherattr(fields,t,os,s1,s2);
 		}
 		inline static bool isshort(const T &t)  {
 			return TypeInfo<T>::isshort(t);
@@ -994,11 +1163,12 @@ namespace XMLSERIALNAMESPACE {
 		inline static bool isinline(const T &t)  {
 			return TypeInfo<T>::isinline(t);
 		}
-		inline static void save(const T &t,std::ostream &os, int indent) {
+		template<typename S>
+		inline static void save(const T &t,S &os, int indent) {
 			TypeInfo<T>::save(t,os,indent);
 		}
-		inline static void load(const T &t, const XMLTagInfo &info,
-				std::istream &is) {
+		template<typename S>
+		inline static void load(const T &t, const XMLTagInfo &info, S &is) {
 			throw streamexception("Streaming Error: load called for constant type");
 		}
 	};
@@ -1007,71 +1177,137 @@ namespace XMLSERIALNAMESPACE {
 }
 
 namespace XMLSERIALNAMESPACE {
-	// Saving method, general
+
 	template<typename T>
+	std::string T2str(const T &i) {
+		std::ostringstream ss;
+		ss << i;
+		return ss.str();
+	}
+
+
+	// Saving method, general
+	template<typename T, typename S>
 	inline typename Type_If<!PtrInfo<T>::isptr,void>::type
-	SaveWrapper(const T &v,const char *vname,
-			std::ostream &os,int indent) {
-		Indent(os,indent);
-		os << "<" << TypeInfo<T>::namestr();
-		TypeInfo<T>::writeotherattr(os,v);
-		if (vname && vname[0]!=0) os << " name=\"" << vname << "\"";
+	SaveWrapper(const T &v,XMLTagInfo &fields, S &os,int indent) {
+		fields.isstart = true;
+		fields.name = TypeInfo<T>::namestr();
+		fields.isend = TypeInfo<T>::isinline(v) || TypeInfo<T>::isshort(v);
+		TypeInfo<T>::addotherattr(fields,v,os);
 		if (TypeInfo<T>::isshort(v)) {
-			os << " value=\"";
+			std::ostringstream ss;
+			dupfmt(ss,os);
+			TypeInfo<T>::save(v,ss,indent);
+			fields.attr["value"] = ss.str();
+		}
+		fields.write(os,indent);
+		if (!fields.isend) {
 			TypeInfo<T>::save(v,os,indent);
-			os << "\" \\>" << std::endl;
-		} else if (TypeInfo<T>::isinline(v)) {
-			os << " \\>" << std::endl;
-		} else {
-			os << ">";
-			TypeInfo<T>::save(v,os,indent);
-			os << "<\\" << TypeInfo<T>::namestr() << ">" << std::endl;
+			fields.isstart = false;
+			fields.isend = true;
+			fields.write(os,indent);
 		}
 	}
 
-
-	// Saving method, raw pointer, virtual
-	template<typename T>
+	// Saving method, pointer, virtual, no ptr cache
+	template<typename T, typename S>
 	inline typename Type_If<PtrInfo<T>::isptr
+			&& !ArchiveInfo<S>::hasptrcache
 			&& TypeProp<typename PtrInfo<T>::BaseType>::HasV, void>::type
-	SaveWrapper(const T &v, const char *vname,
-			std::ostream &os, int indent) {
+	SaveWrapper(const T &v, XMLTagInfo &fields, S &os, int indent) {
 		if (PtrInfo<T>::isnull(v)) {
-			Indent(os,indent);
-			os << "<" << TypeInfo<typename PtrInfo<T>::BaseType>::namestr();
-			if (vname && vname[0]!=0) os << " name=\"" << vname << "\"";
-			os << " isnull=\"1\" \\>" << std::endl;
-		} else PtrInfo<T>::deref_const(v).SaveV(os,vname,indent);
+			fields.isstart = true;
+			fields.isend = true;
+			fields.name = TypeInfo<typename PtrInfo<T>::BaseType>::namestr();
+			fields.attr["isnull"] = "1";
+			fields.write(os,indent);
+		} else PtrInfo<T>::deref_const(v).SaveV(os,fields,indent);
 	}
 
-	// Saving method, raw pointer, non-virtual
-	template<typename T>
+	// Saving method, pointer, non-virtual, no ptr cache
+	template<typename T, typename S>
 	inline typename Type_If<PtrInfo<T>::isptr
+			&& !ArchiveInfo<S>::hasptrcache
 			&& !TypeProp<typename PtrInfo<T>::BaseType>::HasV,void>::type
-	SaveWrapper(const T &v, const char *vname,
-			std::ostream &os, int indent) {
+	SaveWrapper(const T &v, XMLTagInfo &fields, S &os, int indent) {
+		fields.attr["ptrcache"] = T2str(ArchiveInfo<S>::hasptrcache==true);
 		if (PtrInfo<T>::isnull(v)) {
-			Indent(os,indent);
-			os << "<" << TypeInfo<typename PtrInfo<T>::BaseType>::namestr();
-			if (vname && vname[0]!=0) os << " name=\"" << vname << "\"";
-			os << " isnull=\"1\" \\>" << std::endl;
-		} else SaveWrapper(PtrInfo<T>::deref_const(v),vname,os,indent);
+			fields.isstart = true;
+			fields.isend = true;
+			fields.name = TypeInfo<typename PtrInfo<T>::BaseType>::namestr();
+			fields.attr["isnull"] = "1";
+			fields.write(os,indent);
+		} else SaveWrapper(PtrInfo<T>::deref_const(v),fields,os,indent);
+	}
+
+	// Saving method, pointer, virtual, ptr cache
+	template<typename T, typename S>
+	inline typename Type_If<PtrInfo<T>::isptr
+			&& ArchiveInfo<S>::hasptrcache
+			&& TypeProp<typename PtrInfo<T>::BaseType>::HasV, void>::type
+	SaveWrapper(const T &v, XMLTagInfo &fields, S &os, int indent) {
+		if (PtrInfo<T>::isnull(v)) {
+			fields.isstart = true;
+			fields.isend = true;
+			fields.attr["isnull"] = "1";
+			fields.name = TypeInfo<typename PtrInfo<T>::BaseType>::namestr();
+			fields.write(os,indent);
+		} else {
+			int id;
+			if (os.findoradd(v,id)) {
+				fields.attr["ptrid"] = T2str(id);
+				fields.isstart = true;
+				fields.isend = true;
+				fields.name = TypeInfo<typename PtrInfo<T>::BaseType>::namestr();
+				fields.write(os,indent);
+			} else {
+				fields.attr["ptrid"] = T2str(id);
+				PtrInfo<T>::deref_const(v).SaveV(os,fields,indent);
+			}
+		}
+	}
+
+	// Saving method, pointer, non-virtual, ptr cache
+	template<typename T, typename S>
+	inline typename Type_If<PtrInfo<T>::isptr
+			&& ArchiveInfo<S>::hasptrcache
+			&& !TypeProp<typename PtrInfo<T>::BaseType>::HasV,void>::type
+	SaveWrapper(const T &v, XMLTagInfo &fields, S &os, int indent) {
+		if (PtrInfo<T>::isnull(v)) {
+			fields.isstart = true;
+			fields.isend = true;
+			fields.name = TypeInfo<typename PtrInfo<T>::BaseType>::namestr();
+			fields.attr["isnull"] = "1";
+			fields.write(os,indent);
+		} else {
+			int id;
+			if (os.findoradd(v,id)) {
+				fields.attr["ptrid"] = T2str(id);
+				fields.isstart = true;
+				fields.isend = true;
+				fields.name = TypeInfo<typename PtrInfo<T>::BaseType>::namestr();
+				fields.write(os,indent);
+			} else {
+				fields.attr["ptrid"] = T2str(id);
+				SaveWrapper(PtrInfo<T>::deref_const(v),fields,os,indent);
+			}
+		}
 	}
 
 	// Saving, with extra arguments ("key" and "value" in map, e.g.)
-	template<typename T>
-	inline void SaveWrapper(const T &v,const char *vname,
-			std::ostream &os,int indent, const char *e1, const char *e2) {
-		Indent(os,indent);
-		os << "<" << TypeInfo<T>::namestr();
-		TypeInfo<T>::writeotherattr(os,v,e1,e2);
-		if (vname && vname[0]!=0) os << " name=\"" << vname << "\"";
-		if (TypeInfo<T>::isinline(v)) {
-			os << " \\>" << std::endl;
-		} else {
-			os << ">";
+	template<typename T, typename S>
+	inline void SaveWrapper(const T &v,XMLTagInfo &fields, S &os,
+				int indent, const char *e1, const char *e2) {
+		TypeInfo<T>::addotherattr(fields,v,os,e1,e2);
+		fields.isstart = true;
+		fields.name = TypeInfo<T>::namestr();
+		fields.isend = TypeInfo<T>::isinline(v);	
+		fields.write(os,indent);
+		if (!fields.isend) {
 			TypeInfo<T>::save(v,os,indent,e1,e2);
-			os << "<\\" << TypeInfo<T>::namestr() << ">" << std::endl;
+			fields.isstart = false;
+			fields.isend = true;
+			fields.write(os,indent);
 		}
 	}
 
@@ -1088,18 +1324,19 @@ namespace XMLSERIALNAMESPACE {
 	};
 
 	// general Load
-	template<typename T>
+	template<typename T, typename S>
 	inline typename Type_If<!PtrInfo<T>::isptr,void>::type
-	LoadWrapper(T &v, const XMLTagInfo &info, std::istream &is) {
+	LoadWrapper(T &v, const XMLTagInfo &info, S &is) {
 		CheckTag<T>::check(info);
 		TypeInfo<T>::load(v,info,is);
 	}
 
-	// Load, pointer, virtual
-	template<typename T>
+	// Load, pointer, virtual, no ptr cache
+	template<typename T, typename S>
 	inline typename Type_If<PtrInfo<T>::isptr
+			&& !ArchiveInfo<S>::hasptrcache
 			&& TypeProp<typename PtrInfo<T>::BaseType>::HasV,void>::type
-	LoadWrapper(T &v, const XMLTagInfo &info, std::istream &is) {
+	LoadWrapper(T &v, const XMLTagInfo &info, S &is) {
 		if (!info.isstart)
 			throw streamexception(std::string("Stream Input Format Error: expected start tag, received end tag for ")+info.name);
 		std::map<std::string,std::string>::const_iterator vi
@@ -1117,15 +1354,15 @@ namespace XMLSERIALNAMESPACE {
 		PtrInfo<T>::BaseType::xmlserial_valloc::allocbyname(info.name,v);
 		if (PtrInfo<T>::isnull(v))
 			throw streamexception(std::string("Stream Input Format Error: expected start tag for subtype of ")+TypeInfo<typename PtrInfo<T>::BaseType>::namestr()+", received start tag for type "+info.name+" which is either unknown or not a subtype");
-		//PtrInfo<T>::setraw(v,vv);
 		PtrInfo<T>::deref(v).xmlserial_loadwrapv(is,info);
 	}
 
-	// Load, pointer, non-virtual
-	template<typename T>
+	// Load, pointer, non-virtual, no ptr cache
+	template<typename T, typename S>
 	inline typename Type_If<PtrInfo<T>::isptr
+			&& !ArchiveInfo<S>::hasptrcache
 			&& !TypeProp<typename PtrInfo<T>::BaseType>::HasV,void>::type
-	LoadWrapper(T &v, const XMLTagInfo &info, std::istream &is) {
+	LoadWrapper(T &v, const XMLTagInfo &info, S &is) {
 		std::map<std::string,std::string>::const_iterator vi
 			=info.attr.find("isnull");
 		if (vi!=info.attr.end() && vi->second=="1") {
@@ -1142,9 +1379,79 @@ namespace XMLSERIALNAMESPACE {
 		LoadWrapper(PtrInfo<T>::deref(v),info,is);
 	}
 
+	// Load, pointer, virtual, ptr cache
+	template<typename T, typename S>
+	inline typename Type_If<PtrInfo<T>::isptr
+			&& ArchiveInfo<S>::hasptrcache
+			&& TypeProp<typename PtrInfo<T>::BaseType>::HasV,void>::type
+	LoadWrapper(T &v, const XMLTagInfo &info, S &is) {
+		if (!info.isstart)
+			throw streamexception(std::string("Stream Input Format Error: expected start tag, received end tag for ")+info.name);
+		std::map<std::string,std::string>::const_iterator vi
+			=info.attr.find("isnull");
+		if (vi!=info.attr.end() && vi->second=="1") {
+			PtrInfo<T>::setnull(v);
+			if (!info.isend) {
+				XMLTagInfo einfo;
+				ReadTag(is,einfo);
+				if (einfo.name!=info.name || !info.isend || info.isstart)
+					throw streamexception(std::string("Stream Input Format Error: null pointer object for type ")+TypeInfo<typename PtrInfo<T>::BaseType>::namestr()+" and name "+info.name+" has non-empty contents");
+			}
+			return;
+		}
+		vi = info.attr.find("ptrid");
+		if (vi!=info.attr.end()) {
+			int id = atoi(vi->second.c_str());
+			if (is.validid(id)) {
+				if (!is.lookupptr(id,v))
+					throw streamexception(std::string("Stream Input Format Error: pointer cannot be converted for type ")+TypeInfo<typename PtrInfo<T>::BaseType>::namestr()+" and name "+info.name);
+			} else { // new pointer...
+				PtrInfo<T>::BaseType::xmlserial_valloc::allocbyname(info.name,v);
+				if (PtrInfo<T>::isnull(v))
+					throw streamexception(std::string("Stream Input Format Error: expected start tag for subtype of ")+TypeInfo<typename PtrInfo<T>::BaseType>::namestr()+", received start tag for type "+info.name+" which is either unknown or not a subtype");
+				if (!is.addptr(id,v))
+					throw streamexception(std::string("Stream Input Format Error: pointer cannot be cached (pointer number sequence out of order?) for type ")+TypeInfo<typename PtrInfo<T>::BaseType>::namestr()+" and name "+info.name);
+				PtrInfo<T>::deref(v).xmlserial_loadwrapv(is,info);
+			}
+		}
+	}
+
+	// Load, pointer, non-virtual, ptr cache
+	template<typename T, typename S>
+	inline typename Type_If<PtrInfo<T>::isptr
+			&& ArchiveInfo<S>::hasptrcache
+			&& !TypeProp<typename PtrInfo<T>::BaseType>::HasV,void>::type
+	LoadWrapper(T &v, const XMLTagInfo &info, S &is) {
+		std::map<std::string,std::string>::const_iterator vi
+			=info.attr.find("isnull");
+		if (vi!=info.attr.end() && vi->second=="1") {
+			PtrInfo<T>::setnull(v);
+			if (!info.isend) {
+				XMLTagInfo einfo;
+				ReadTag(is,einfo);
+				if (einfo.name!=info.name || !info.isend || info.isstart)
+					throw streamexception(std::string("Stream Input Format Error: null pointer object for type ")+TypeInfo<typename PtrInfo<T>::BaseType>::namestr()+" and name "+info.name+" has non-empty contents");
+			}
+			return;
+		}
+		vi = info.attr.find("ptrid");
+		if (vi!=info.attr.end()) {
+			int id = atoi(vi->second.c_str());
+			if (is.validid(id)) {
+				if (!is.lookupptr(id,v))
+					throw streamexception(std::string("Stream Input Format Error: pointer cannot be converted for type ")+TypeInfo<typename PtrInfo<T>::BaseType>::namestr()+" and name "+info.name);
+			} else { // new pointer...
+				PtrInfo<T>::allocnew(v);
+				if (!is.addptr(id,v))
+					throw streamexception(std::string("Stream Input Format Error: pointer cannot be cached (pointer number sequence out of order?) for type ")+TypeInfo<typename PtrInfo<T>::BaseType>::namestr()+" and name "+info.name);
+				LoadWrapper(PtrInfo<T>::deref(v),info,is);
+			}
+		}
+	}
+
 	// Load, first read tag
-	template<typename T>
-	inline void LoadWrapper(T &v, std::istream &is) {
+	template<typename T, typename S>
+	inline void LoadWrapper(T &v, S &is) {
 		XMLTagInfo info;
 		ReadTag(is,info);
 		LoadWrapper(v,info,is);
@@ -1153,65 +1460,65 @@ namespace XMLSERIALNAMESPACE {
 	// next: SerialLoadWrap and SerialSaveWrap
 	// that call preload/postload or presave/postsave if they
 	// exist before/after loading/saving
-	template<typename T>
+	template<typename T, typename S>
 	inline typename Type_If<!TypeProp<T>::HasPreLoad
 						&& !TypeProp<T>::HasPostLoad,void>::type
-	SerialLoadWrap(T &t, std::istream &is) {
+	SerialLoadWrap(T &t, S &is) {
 		t.xmlserial_Load(is);
 	}
 
-	template<typename T>
+	template<typename T, typename S>
 	inline typename Type_If<TypeProp<T>::HasPreLoad
 						&& !TypeProp<T>::HasPostLoad,void>::type
-	SerialLoadWrap(T &t, std::istream &is) {
+	SerialLoadWrap(T &t, S &is) {
 		t.xmlserial_preload();
 		t.xmlserial_Load(is);
 	}
 
-	template<typename T>
+	template<typename T, typename S>
 	inline typename Type_If<!TypeProp<T>::HasPreLoad
 						&& TypeProp<T>::HasPostLoad,void>::type
-	SerialLoadWrap(T &t, std::istream &is) {
+	SerialLoadWrap(T &t, S &is) {
 		t.xmlserial_Load(is);
 		t.xmlserial_postload();
 	}
 
-	template<typename T>
+	template<typename T, typename S>
 	inline typename Type_If<TypeProp<T>::HasPreLoad
 						&& TypeProp<T>::HasPostLoad,void>::type
-	SerialLoadWrap(T &t, std::istream &is) {
+	SerialLoadWrap(T &t, S &is) {
 		t.xmlserial_preload();
 		t.xmlserial_Load(is);
 		t.xmlserial_postload();
 	}
 
-	template<typename T>
+	template<typename T, typename S>
 	inline typename Type_If<!TypeProp<T>::HasPreSave
 						&& !TypeProp<T>::HasPostSave,void>::type
-	SerialSaveWrap(const T &t, std::ostream &os, int indent) {
+	SerialSaveWrap(const T &t, S &os, int indent) {
 		t.xmlserial_Save(os,indent);
 	}
 
-	template<typename T>
+	template<typename T, typename S>
 	inline typename Type_If<TypeProp<T>::HasPreSave
 						&& !TypeProp<T>::HasPostSave,void>::type
-	SerialSaveWrap(const T &t, std::ostream &os, int indent) {
+	SerialSaveWrap(const T &t, S &os, int indent) {
 		t.xmlserial_presave();
 		t.xmlserial_Save(os,indent);
 	}
 
-	template<typename T>
+	template<typename T, typename S>
 	inline typename Type_If<!TypeProp<T>::HasPreSave
 						&& TypeProp<T>::HasPostSave,void>::type
-	SerialSaveWrap(const T &t, std::ostream &os, int indent) {
+	SerialSaveWrap(const T &t, S &os, int indent) {
 		t.xmlserial_Save(os,indent);
 		t.xmlserial_postsave();
 	}
 
-	template<typename T>
+	template<typename T, typename S>
 	inline typename Type_If<TypeProp<T>::HasPreSave
 						&& TypeProp<T>::HasPostSave,void>::type
-	SerialSaveWrap(const T &t, std::ostream &os, int indent) {
+	SerialSaveWrap(const T &t, S &os, int indent) {
 		t.xmlserial_presave();
 		t.xmlserial_Save(os,indent);
 		t.xmlserial_postsave();
@@ -1221,16 +1528,18 @@ namespace XMLSERIALNAMESPACE {
 	template<typename T>
 	struct TypeInfo<T, typename Type_If<TypeProp<T>::HasIDname,void>::type> {
 		inline static const char *namestr() { return T::xmlserial_IDname(); }
-		inline static void writeotherattr(std::ostream &,const T &) { }
+		template<typename S>
+		inline static void addotherattr(XMLTagInfo &fields, const T &,S &) {} 
 		inline static bool isshort(const T &) { return false; }
 		inline static bool isinline(const T &) { return false; }
-		inline static void save(const T &t,std::ostream &os,int indent) {
+		template<typename S>
+		inline static void save(const T &t,S &os,int indent) {
 			os << std::endl;
 			SerialSaveWrap(t,os,indent+1);
 			Indent(os,indent);
 		}
-		inline static void load(T &t,const XMLTagInfo &info,
-				std::istream &is) {
+		template<typename S>
+		inline static void load(T &t,const XMLTagInfo &info, S &is) {
 			SerialLoadWrap(t,is);
 		}
 	};
@@ -1239,19 +1548,22 @@ namespace XMLSERIALNAMESPACE {
 	template<typename T>
 	struct TypeInfo<T, typename Type_If<TypeProp<T>::HasShift,void>::type> {
 		inline static const char *namestr() { return T::xmlserial_shiftname(); }
-		inline static void writeotherattr(std::ostream &, const T &) {}
+		template<typename S>
+		inline static void addotherattr(XMLTagInfo &fields, const T &,S &) {} 
 		inline static bool isshort(const T &) { return T::XMLSERIAL_ISSHORT; }
 		inline static bool isinline(const T &) { return false; }
-		inline static void save(const T &t,std::ostream &os,int indent) {
+		template<typename S>
+		inline static void save(const T &t,S &os,int indent) {
 			os << t;
 		}
+		template<typename S>
 		inline static void load(T &t, const XMLTagInfo &info,
-				std::istream &is) {
+				S &is) {
 			std::map<std::string,std::string>::const_iterator vi
 				=info.attr.find("value");
 			if (vi!=info.attr.end()) {
 				std::istringstream ss(vi->second);
-				ss.copyfmt(is);
+				dupfmt(ss,is);
 				ss >> t;
 				if (info.isend) return;
 			} else {
@@ -1265,17 +1577,19 @@ namespace XMLSERIALNAMESPACE {
 	// how to save an item where G is a "getter" for value,type,name
 	template<typename G>
 	struct SaveItem {
-		template<typename T>
-			inline static void exec(T o,std::ostream &os,int indent) {
-				SaveWrapper(G::getvalue(o),G::getname(o),os,indent);
+		template<typename T, typename S>
+			inline static void exec(T o,S &os,int indent) {
+				XMLTagInfo fields;
+				fields.attr["name"] = G::getname(o);
+				SaveWrapper(G::getvalue(o),fields,os,indent);
 			}
 	};
 
 	// same for Loading
 	template<typename G>
 	struct LoadItem {
-		template<typename T>
-		inline static bool exec(T o,std::istream &is,
+		template<typename T, typename S>
+		inline static bool exec(T o,S &is,
 								const XMLTagInfo &info) {
 			std::map<std::string,std::string>::const_iterator ni
 					=info.attr.find("name");
@@ -1289,8 +1603,8 @@ namespace XMLSERIALNAMESPACE {
 	// Load all of list L on object O
 	template<typename L>
 	struct LoadList {
-		template<typename O>
-		inline static void exec(O o, std::istream &is, const char *cname) {
+		template<typename O, typename S>
+		inline static void exec(O o, S &is, const char *cname) {
 			XMLTagInfo info;
 			std::set<std::string> loadedmem;
 			while(1) {

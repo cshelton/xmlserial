@@ -30,7 +30,7 @@
 #define XMLSERIAL_SET_H
 
 #include <vector>
-
+#include <sstream>
 #include "xmlserial.h"
 
 namespace XMLSERIALNAMESPACE {
@@ -39,23 +39,27 @@ namespace XMLSERIALNAMESPACE {
 	struct TypeInfo<std::vector<T,A>,
 	typename Type_If<!IsShiftable<T>::atall,void>::type> {
 		inline static const char *namestr() { return "vector"; }
-		inline static void writeotherattr(std::ostream &os, const std::vector<T,A> &v) {
-			os << " nelem=" << v.size();
+		template<typename S>
+		inline static void addotherattr(XMLTagInfo &fields, const std::vector<T,A> &v, S &os) {
+			fields.attr["nelem"] = T2str(v.size());
 		}
 		inline static bool isshort(const std::vector<T,A> &) { return false; }
 		inline static bool isinline(const std::vector<T,A> &) { return false; }
+		template<typename S>
 		inline static void save(const std::vector<T,A> &v,
-				std::ostream &os,int indent) {
+				S &os,int indent) {
 			os << std::endl;
 			int c=0;
 			for(typename std::vector<T,A>::const_iterator i=v.begin();
 					i!=v.end();++i,++c) {
-				SaveWrapper(*i,"",os,indent+1);
+				XMLTagInfo fields;
+				SaveWrapper(*i,fields,os,indent+1);
 			}
 			Indent(os,indent);
 		}
+		template<typename S>
 		inline static void load(std::vector<T,A> &v, const XMLTagInfo &info,
-				std::istream &is) {
+				S &is) {
 			std::map<std::string,std::string>::const_iterator ni
 				= info.attr.find("nelem");
 			int n = 0;
@@ -87,18 +91,21 @@ namespace XMLSERIALNAMESPACE {
 			static char *ret = TName("vector",1,TypeInfo<T>::namestr());
 			return ret;
 		}
-		inline static void writeotherattr(std::ostream &os, const std::vector<T,A> &v) {
-			os << " nelem=" << v.size();
+		template<typename S>
+		inline static void addotherattr(XMLTagInfo &fields, const std::vector<T,A> &v, S &os) {
+			fields.attr["nelem"] = T2str(v.size());
 		}
 		inline static bool isshort(const std::vector<T,A> &) { return false; }
 		inline static bool isinline(const std::vector<T,A> &) { return false; }
+		template<typename S>
 		inline static void save(const std::vector<T,A> &v,
-				std::ostream &os, int indent) {
+				S &os, int indent) {
 			for(typename std::vector<T,A>::const_iterator i=v.begin();i!=v.end();++i)
 				os << *i << ' ';
 		}
+		template<typename S>
 		inline static void load(std::vector<T,A> &v, const XMLTagInfo &info,
-				std::istream &is) {
+				S &is) {
 			std::map<std::string,std::string>::const_iterator ni
 				= info.attr.find("nelem");
 			if (ni == info.attr.end())

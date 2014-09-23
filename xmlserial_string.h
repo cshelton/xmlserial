@@ -35,15 +35,19 @@ namespace XMLSERIALNAMESPACE {
 	template<>
 	struct TypeInfo<std::string,void> {
 		inline static const char *namestr() { return "string"; }
-		inline static void writeotherattr(std::ostream &, const std::string &) { }
+		template<typename S>
+		inline static void addotherattr(XMLTagInfo &,const std::string &,
+				S &) { }
 		inline static bool isshort(const std::string &s) { return s.length()<20; }
 		inline static bool isinline(const std::string &s) { return false; }
-		inline static void save(const std::string &s, std::ostream &os,
+		template<typename S>
+		inline static void save(const std::string &s, S &os,
 				int indent) {
 			WriteStr(os,s,isshort(s));
 		}
+		template<typename S>
 		inline static void load(std::string &s, const XMLTagInfo &info,
-				std::istream &is) {
+				S &is) {
 			std::map<std::string,std::string>::const_iterator vi
 				=info.attr.find("value");
 			if (vi!=info.attr.end()) {

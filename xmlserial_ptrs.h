@@ -30,7 +30,7 @@
 #define XMLSERIAL_PTRS_H
 
 // Define here all of the types of pointers that should be saved as such
-//        using macros like those below
+//        using macros like those below (BT is the "base type")
 // Then, create a PtrInfo<...> structure (as those farther below) for each
 
 // for C++03, just standard pointer
@@ -38,15 +38,17 @@
 #define XMLSERIAL_PTR_NUM 1
 
 #if __cplusplus > 199711L
-// for C++11, add shared_ptr and unique_ptr (with default destructors only)
-#include <memory>
-#define XMLSERIAL_PTR_TYPE2 std::shared_ptr<BT>
-#define XMLSERIAL_PTR_TYPE3 std::unique_ptr<BT>
+	// for C++11, add shared_ptr and unique_ptr (with dflt destructors only)
+	#include <memory>
+	#define XMLSERIAL_PTR_TYPE2 std::shared_ptr<BT>
+	#define XMLSERIAL_PTR_TYPE3 std::unique_ptr<BT>
 
-// redefine the number...
-#undef XMLSERIAL_PTR_NUM
-#define XMLSERIAL_PTR_NUM 3
+	// redefine the number...
+	#undef XMLSERIAL_PTR_NUM
+	#define XMLSERIAL_PTR_NUM 3
 #endif
+
+//-------------------------------------------------
 
 namespace XMLSERIALNAMESPACE {
 
@@ -60,7 +62,8 @@ struct PtrInfo<T*> {
 	XMLSERIAL_DECVAL(isptr,true);
 	typedef T BaseType;
 	typedef T* P;
-	
+	static const char *name() { return "ptr"; }
+
 	static const T &deref_const(T * const &v) { return *v; }
 	static T &deref(T *&v) { return *v; }
 
@@ -78,6 +81,14 @@ struct PtrInfo<T*> {
 
 	template<typename S>
 	static P cast(S *p) { return dynamic_cast<P>(p); }
+	static bool setfrom(P &v, void *handle, const char *pname) {
+		if (pname != name()) return false; // only set to raw ptr
+		v = *((P *)(handle));
+		return true;
+	} 
+	static void *getptr(const P &v) {
+		return (void *)(v);
+	}
 };
 
 #if __cplusplus > 199711L
@@ -86,6 +97,7 @@ struct PtrInfo<std::shared_ptr<T>> {
 	XMLSERIAL_DECVAL(isptr,true);
 	typedef T BaseType;
 	typedef std::shared_ptr<T> P;
+	static const char *name() { return "sptr"; }
 
 	static const T &deref_const(const P &v) { return *v; }
 	static T &deref(P &v) { return *v; }
@@ -103,8 +115,17 @@ struct PtrInfo<std::shared_ptr<T>> {
 	static P getnull() { return P(); }
 
 	template<typename S>
-	static P cast(std::shared_ptr<S> &p)
+	static P cast(const std::shared_ptr<S> &p)
 		{ return std::dynamic_pointer_cast<T>(p); }
+
+	static bool setfrom(P &v, void *handle, const char *pname) {
+		if (pname != name()) return false; // only set to shared ptr
+		v = *((P *)(handle));
+		return true;
+	} 
+	static void *getptr(const P &v) {
+		return (void *)(v.get());
+	}
 };
 
 template<typename T>
@@ -112,6 +133,7 @@ struct PtrInfo<std::unique_ptr<T>> {
 	XMLSERIAL_DECVAL(isptr,true);
 	typedef T BaseType;
 	typedef std::unique_ptr<T> P;
+	static const char *name() { return "uptr"; }
 
 	static const T &deref_const(const P &v) { return *v; }
 	static T &deref(P &v) { return *v; }
@@ -128,12 +150,20 @@ struct PtrInfo<std::unique_ptr<T>> {
 	static bool isnull(const P &v) { return !v; }
 	static P getnull() { return P(); }
 	template<typename S>
-	static P cast(std::shared_ptr<S> &p) {
+	static P cast(const std::unique_ptr<S> &p) {
 		if (!p) return P();
 		T *retptr = dynamic_cast<T *>(p.get());
 		if (!retptr) return P();
 		p.release();
 		return P(retptr);
+	}
+
+	static bool setfrom(P &v, void *handle, const char *pname) {
+		return false; // cannot set a unique pointer to another pointer
+			// that already exists...
+	} 
+	static void *getptr(const P &v) {
+		return (void *)(v.get());
 	}
 };
 #endif // of c++11 code block
@@ -172,26 +202,19 @@ struct PtrInfo<std::unique_ptr<T>> {
 	virtual BASE(I) valloc(BASE(I) p) { \
 		return PtrInfo<BASE(I) >::getnull(); \
 	}
+
+}
+
+#include <iostream>
+
+namespace XMLSERIALNAMESPACE {
+
 template<typename BT>
 class basefactory {
 public:
 	virtual ~basefactory() {};
 
 	XMLSERIAL_REP(XMLSERIAL_PTR_NULL_DEF,XMLSERIAL_PTR_TYPE,XMLSERIAL_PTR_NUM)
-/*
-	virtual BT *valloc(BT *p) {
-		return PtrInfo<BT*>::getnull();
-	}
-
-#if __cplusplus > 199711L
-	virtual std::shared_ptr<BT> valloc(std::shared_ptr<BT> p) {
-		return PtrInfo<std::shared_ptr<BT>>::getnull();
-	}
-	virtual std::unique_ptr<BT> valloc(std::unique_ptr<BT> p) {
-		return PtrInfo<std::unique_ptr<BT>>::getnull();
-	}
-#endif
-*/
 };
 
 #define XMLSERIAL_PTR_DEF(BASE,I) \
@@ -201,8 +224,14 @@ public:
 		return allocT::ret(); \
 	}
 
-template<typename AT,typename BT>
+template<typename AT,typename BT,typename Condition=void>
 class factory : public basefactory<BT> {
+public:
+	virtual ~factory() {}
+};
+
+template<typename AT,typename BT>
+class factory<AT,BT,typename Type_If<HasDefCon<AT>::value,void>::type> : public basefactory<BT> {
 public:
 	virtual ~factory() {};
 
