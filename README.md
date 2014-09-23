@@ -287,11 +287,27 @@ Differences from Boost Serialization package:
   1. You can write the same "loader" and "saver"
   2. It can do versioning
   3. The archive can dictate the format (ASCII, Binary, XML)
-  4. It doesn't require icky macros
+  4. It doesn't require (many) icky macros
 - this package uses macros.  This gives it a few advantages:
   1. Can use standard istream and ostream
   2. You don't have to write any functions (just list the state to be serialized)
   3. The resulting XML can be read in even if the fields are rearranged!
-  4. Classes can be more flexible in how the serialize (for instance, we can use << and >> for some "simple" classes)
+  4. Classes can be more flexible in how they serialize (for instance, we can use << and >> for some "simple" classes)
+  5. This package is header only (no linking!)
 
-This package was originally written before the serialization library as offically part of boost.  Early versions of that did not have good support for determining the type of an object are load time (for polymorphic classes -- classes with subclasses).  The boost library has some support for pointers that point to the same object.  This package has no such support.  We hope to add that support by allowing archives (in addition to streams).
+This package was originally written before the serialization library as offically part of boost.  Early versions of that did not have good support for determining the type of an object are load time (for polymorphic classes -- classes with subclasses).  The boost library has some support for pointers that point to the same object.  This package also has this support.
+
+Differences from Cereal:
+------------------------
+- Cereal works much like boost serialization.  It has many of the same advantages (see above), plus some others:
+  1. The syntax is a little simpler than boost serialization
+  2. The linking is much easier than boost serialization (same as this package)
+  3. The archive can dictate the format
+  4. Can do versioning
+- This package has the same advantages as over boost serialization, plus others:
+  1. Can use standard istream and ostream (assuming you don't want pointer serialization).
+  2. Can serialize raw pointers (assumes they are like unique_ptrs)
+  3. Can reorder elements in XML records
+  4. Classes can be more flexible in how they serialize (use << and >>, for example, or place value in a value= attribute)
+
+This package also supports polymorphism (like cereal) and smart pointers (like cereal).
