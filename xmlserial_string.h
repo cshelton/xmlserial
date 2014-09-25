@@ -26,8 +26,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef XMLSERIAL_SET_H
-#define XMLSERIAL_SET_H
+#ifndef XMLSERIAL_STRING_H
+#define XMLSERIAL_STRING_H
 
 #include "xmlserial.h"
 
@@ -52,7 +52,7 @@ namespace XMLSERIALNAMESPACE {
 				=info.attr.find("value");
 			if (vi!=info.attr.end()) {
 				std::istringstream ss(vi->second);
-				ss.copyfmt(is);
+				dupfmt(ss,is);
 				ReadStr(ss,s,"");
 				if (info.isend) return;
 			} else ReadStr(is,s,"<");

@@ -26,8 +26,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef XMLSERIAL_SET_H
-#define XMLSERIAL_SET_H
+#ifndef XMLSERIAL_VECTOR_H
+#define XMLSERIAL_VECTOR_H
 
 #include <vector>
 #include <sstream>

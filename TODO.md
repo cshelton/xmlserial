@@ -5,3 +5,5 @@ To-Do
 - [ ] Add more STL containers
 - [ ] Remove need for 0-arg constructor (caution: std::enable_shared_from_this)
 - [ ] Factor out load/save code to allow for other types of archives
+- [ ] Add C++11-friendly features (if compiling under C++11)
+- [ ] Add support for c-style arrays

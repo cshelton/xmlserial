@@ -26,8 +26,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef XMLSERIAL_SET_H
-#define XMLSERIAL_SET_H
+#ifndef XMLSERIAL_MAP_H
+#define XMLSERIAL_MAP_H
 
 #include "xmlserial.h"
 #include "xmlserial_pair.h"

@@ -26,8 +26,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef XMLSERIAL_SET_H
-#define XMLSERIAL_SET_H
+#ifndef XMLSERIAL_PAIR_H
+#define XMLSERIAL_PAIR_H
 
 #include "xmlserial.h"
 
@@ -136,14 +136,14 @@ namespace XMLSERIALNAMESPACE {
 				=info.attr.find(firstname);
 			if (vi!=info.attr.end()) {
 				std::istringstream ss(vi->second);
-				ss.copyfmt(is);
+				dupfmt(ss,is);
 				ss >> p.first;
 			} else
 				throw streamexception(std::string("Stream Input Format Error: missing attribute ")+firstname+" in tag "+info.name);
 			vi = info.attr.find(secondname);
 			if (vi!=info.attr.end()) {
 				std::istringstream ss(vi->second);
-				ss.copyfmt(is);
+				dupfmt(ss,is);
 				ss >> p.second;
 			} else
 				throw streamexception(std::string("Stream Input Format Error: missing attribute ")+secondname+" in tag "+info.name);

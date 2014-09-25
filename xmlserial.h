@@ -92,12 +92,12 @@ namespace XMLSERIALNAMESPACE {
 
 #define XMLSERIAL_GETTERCOMMON(expr,cexpr,vtype,vname) \
 			typedef vtype valtype; \
-			static inline vtype &getvalue(XMLSERIAL_BASETYPE *o) \
+			static inline valtype &getvalue(XMLSERIAL_BASETYPE *o) \
 				{ return expr; } \
 			static inline const char *getname(XMLSERIAL_BASETYPE *o) \
 				{ return vname; } \
 			\
-			static inline vtype const &getvalue(const XMLSERIAL_BASETYPE *o) \
+			static inline valtype const &getvalue(const XMLSERIAL_BASETYPE *o) \
 				{ return cexpr; } \
 			static inline const char *getname(const XMLSERIAL_BASETYPE *o) \
 				{ return vname; } \
@@ -134,7 +134,7 @@ namespace XMLSERIALNAMESPACE {
 				{ return name; } \
 		}; \
 
-#define XMLSERIAL_V_COMMON(myname) \
+#define XMLSERIAL_P_COMMON(myname) \
 	friend struct XMLSERIALNAMESPACE::IsEmpty<XMLSERIAL_BASETYPE,void>; \
 	private: \
 		template<typename XMLSERIAL_T, bool XMLSERIAL_B> \
@@ -174,7 +174,7 @@ namespace XMLSERIALNAMESPACE {
 		} \
 		template<typename S> \
 		inline static XMLSERIAL_BASETYPE *LoadV(S &is) { \
-			XMLSERIAL_BASETYPE *ret; XMLSERIALNAMESPACE::LoadWrapper(ret,is); \
+			XMLSERIAL_BASETYPE *ret; XMLSERIALNAMESPACE::Load(ret,is); \
 			return ret; \
 		} \
 		virtual void xmlserial_loadwrapv(std::istream &is, \
@@ -186,21 +186,6 @@ namespace XMLSERIALNAMESPACE {
 			XMLSERIALNAMESPACE::LoadWrapper(*this,info,ia); \
 		}
 
-#define XMLSERIAL_SUPER_COMMON(cname) \
-		xmlserial_class##cname##lst; \
-		template<bool XMLSERIAL_B> \
-		struct xmlserial_vallocT<typename XMLSERIALNAMESPACE::Type_If<XMLSERIAL_B && cname::xmlserial_valloc::valid,XMLSERIAL_BASETYPE>::type,XMLSERIAL_B> { \
-			const static bool valid = XMLSERIAL_B; \
-			typedef cname::xmlserial_valloc::rettype rettype; \
-			typedef XMLSERIALNAMESPACE::basefactory<rettype> createtype; \
-			template<typename PTRT> \
-			inline static void allocbyname(const std::string &name, \
-						PTRT &ret) { \
-				cname::xmlserial_valloc::allocbyname<PTRT>(name,ret); \
-			} \
-			inline static const char *addalloc(const char *name, createtype *fn) \
-				{ return cname::xmlserial_valloc::addalloc(name,fn); } \
-		}; \
 
 #define XMLSERIAL_NAME0(cname) \
 		#cname
@@ -290,7 +275,7 @@ namespace XMLSERIALNAMESPACE {
 	}
 
 
-#define XMLSERIAL_ID0_V(cname) \
+#define XMLSERIAL_ID0_P(cname) \
 	static const char *xmlserial_IDname() { \
 		static const char *ret = xmlserial_valloc::addalloc( \
 			XMLSERIAL_NAME0(cname), \
@@ -298,7 +283,7 @@ namespace XMLSERIALNAMESPACE {
 		return ret; \
 	} \
 
-#define XMLSERIAL_ID1_V(cname,tname1) \
+#define XMLSERIAL_ID1_P(cname,tname1) \
 	static const char *xmlserial_IDname() { \
 		static const char *ret = xmlserial_valloc::addalloc( \
 			XMLSERIAL_NAME1(cname,tname1), \
@@ -306,7 +291,7 @@ namespace XMLSERIALNAMESPACE {
 		return ret; \
 	}
 
-#define XMLSERIAL_ID2_V(cname,tname1,tname2) \
+#define XMLSERIAL_ID2_P(cname,tname1,tname2) \
 	static const char *xmlserial_IDname() { \
 		static const char *ret = xmlserial_valloc::addalloc( \
 			XMLSERIAL_NAME2(cname,tname1,tname2), \
@@ -314,7 +299,7 @@ namespace XMLSERIALNAMESPACE {
 		return ret; \
 	}
 
-#define XMLSERIAL_ID3_V(cname,tname1,tname2,tname3) \
+#define XMLSERIAL_ID3_P(cname,tname1,tname2,tname3) \
 	static const char *xmlserial_IDname() { \
 		static const char *ret = xmlserial_valloc::addalloc( \
 			XMLSERIAL_NAME3(cname,tname1,tname2,tname3), \
@@ -322,7 +307,7 @@ namespace XMLSERIALNAMESPACE {
 		return ret; \
 	}
 
-#define XMLSERIAL_ID4_V(cname,tname1,tname2,tname3,tname4) \
+#define XMLSERIAL_ID4_P(cname,tname1,tname2,tname3,tname4) \
 	static const char *xmlserial_IDname() { \
 		static const char *ret = xmlserial_valloc::addalloc( \
 			XMLSERIAL_NAME4(cname,tname1,tname2,tname3,tname4), \
@@ -461,50 +446,50 @@ namespace XMLSERIALNAMESPACE {
 	private: \
 		typedef XMLSERIALNAMESPACE::ListEnd
 
-/* Here starts "START_V" macros: */
+/* Here starts "START_P" macros: */
 
-#define XMLSERIAL_START_V(cname) \
+#define XMLSERIAL_START_P(cname) \
 	private: \
 		typedef cname XMLSERIAL_BASETYPE; \
-		XMLSERIAL_V_COMMON(cname) \
+		XMLSERIAL_P_COMMON(cname) \
 	public: \
-		XMLSERIAL_ID0_V(cname); \
+		XMLSERIAL_ID0_P(cname); \
 	private: \
 		typedef XMLSERIALNAMESPACE::ListEnd
 
-#define XMLSERIAL_START1_V(cname,tname) \
+#define XMLSERIAL_START1_P(cname,tname) \
 	private: \
 		typedef cname<tname> XMLSERIAL_BASETYPE; \
-		XMLSERIAL_V_COMMON(cname) \
+		XMLSERIAL_P_COMMON(cname) \
 	public: \
-		XMLSERIAL_ID1_V(cname,tname); \
+		XMLSERIAL_ID1_P(cname,tname); \
 	private: \
 		typedef XMLSERIALNAMESPACE::ListEnd
 
-#define XMLSERIAL_START2_V(cname,tname1,tname2) \
+#define XMLSERIAL_START2_P(cname,tname1,tname2) \
 	private: \
 		typedef cname<tname> XMLSERIAL_BASETYPE; \
-		XMLSERIAL_V_COMMON(cname) \
+		XMLSERIAL_P_COMMON(cname) \
 	public: \
-		XMLSERIAL_ID2_V(cname,tname1,tname2); \
+		XMLSERIAL_ID2_P(cname,tname1,tname2); \
 	private: \
 		typedef XMLSERIALNAMESPACE::ListEnd
 
-#define XMLSERIAL_START3_V(cname,tname1,tname2,tname3) \
+#define XMLSERIAL_START3_P(cname,tname1,tname2,tname3) \
 	private: \
 		typedef cname<tname> XMLSERIAL_BASETYPE; \
-		XMLSERIAL_V_COMMON(cname) \
+		XMLSERIAL_P_COMMON(cname) \
 	public: \
-		XMLSERIAL_ID3_V(cname,tname1,tname2,tname3); \
+		XMLSERIAL_ID3_P(cname,tname1,tname2,tname3); \
 	private: \
 		typedef XMLSERIALNAMESPACE::ListEnd
 
-#define XMLSERIAL_START4_V(cname,tname1,tname2,tname3,tname4) \
+#define XMLSERIAL_START4_P(cname,tname1,tname2,tname3,tname4) \
 	private: \
 		typedef cname<tname> XMLSERIAL_BASETYPE; \
-		XMLSERIAL_V_COMMON(cname) \
+		XMLSERIAL_P_COMMON(cname) \
 	public: \
-		XMLSERIAL_ID4_V(cname,tname1,tname2,tname3,tname4); \
+		XMLSERIAL_ID4_P(cname,tname1,tname2,tname3,tname4); \
 	private: \
 		typedef XMLSERIALNAMESPACE::ListEnd
 
@@ -534,37 +519,58 @@ namespace XMLSERIALNAMESPACE {
 			xmlserial_get##vname; \
 		typedef XMLSERIALNAMESPACE::List<xmlserial_get##vname,xmlserial_##vname##lst>
 
-/* Here starts "SUPER" macros */
+/* Here starts "BASE" macros */
 
-#define XMLSERIAL_SUPER(cname) \
-		XMLSERIAL_SUPER_COMMON(cname) \
-		typedef XMLSERIAL_GETTERSTRUCT((*(static_cast<cname *>(o))),*(static_cast<const cname *>(o)),cname,#cname) \
-			xmlserial_getclass##cname; \
-		typedef XMLSERIALNAMESPACE::List<xmlserial_getclass##cname,xmlserial_class##cname##lst>
+#define XMLSERIAL_BASE(basename) \
+	XMLSERIAL_BASE_COMMON(basename) \
+	typedef XMLSERIAL_GETTERSTRUCT((*(static_cast<basename *>(o))), \
+		*(static_cast<const basename *>(o)),basename,#basename) \
+		xmlserial_getclass##basename; \
+	typedef XMLSERIALNAMESPACE::List<xmlserial_getclass##basename, \
+		xmlserial_class##basename##lst>
 			
 			
-#define XMLSERIAL_SUPER_DEFAULT(cname,val) \
-	XMLSERIAL_SUPER_COMMON(cname) \
-	typedef XMLSERIAL_GETTERSTRUCT_DEFAULT((*(static_cast<cname *>(o))), \
-		*(static_cast<const cname *>(o)),cname,#cname,val) \
-		xmlserial_getclass##cname; \
-	typedef XMLSERIALNAMESPACE::List<xmlserial_getclass##cname, \
-		xmlserial_class##cname##lst>
+#define XMLSERIAL_BASE_DEFAULT(basename,val) \
+	XMLSERIAL_BASE_COMMON(basename) \
+	typedef XMLSERIAL_GETTERSTRUCT_DEFAULT((*(static_cast<basename *>(o))), \
+		*(static_cast<const basename *>(o)),basename,#basename,val) \
+		xmlserial_getclass##basename; \
+	typedef XMLSERIALNAMESPACE::List<xmlserial_getclass##basename, \
+		xmlserial_class##basename##lst>
 			
-#define XMLSERIAL_SUPER_N(cname,sname) \
-		XMLSERIAL_SUPER_COMMON(cname) \
-		typedef XMLSERIAL_GETTERSTRUCT((*(static_cast<cname *>(o))),*(static_cast<const cname *>(o)),cname,sname) \
-			xmlserial_getclass##cname; \
-		typedef XMLSERIALNAMESPACE::List<xmlserial_getclass##cname,xmlserial_class##cname##lst>
+#define XMLSERIAL_BASE_N(basename,sname) \
+	XMLSERIAL_BASE_COMMON(basename) \
+	typedef XMLSERIAL_GETTERSTRUCT((*(static_cast<basename *>(o))), \
+		*(static_cast<const basename *>(o)),basename,sname) \
+		xmlserial_getclass##basename; \
+	typedef XMLSERIALNAMESPACE::List<xmlserial_getclass##basename, \
+		xmlserial_class##basename##lst>
 			
 			
-#define XMLSERIAL_SUPER_DEFAULT_N(cname,val,sname) \
-	XMLSERIAL_SUPER_COMMON(cname) \
-	typedef XMLSERIAL_GETTERSTRUCT_DEFAULT((*(static_cast<cname *>(o))), \
-		*(static_cast<const cname *>(o)),cname,sname,val) \
-		xmlserial_getclass##cname; \
-	typedef XMLSERIALNAMESPACE::List<xmlserial_getclass##cname, \
-		xmlserial_class##cname##lst>
+#define XMLSERIAL_BASE_DEFAULT_N(basename,val,sname) \
+	XMLSERIAL_BASE_COMMON(basename) \
+	typedef XMLSERIAL_GETTERSTRUCT_DEFAULT((*(static_cast<basename *>(o))), \
+		*(static_cast<const basename *>(o)),basename,sname,val) \
+		xmlserial_getclass##basename; \
+	typedef XMLSERIALNAMESPACE::List<xmlserial_getclass##basename, \
+		xmlserial_class##basename##lst>
+
+
+#define XMLSERIAL_BASE_COMMON(basename) \
+		xmlserial_class##basename##lst; \
+		template<bool XMLSERIAL_B> \
+		struct xmlserial_vallocT<typename XMLSERIALNAMESPACE::Type_If<XMLSERIAL_B && basename::xmlserial_valloc::valid,XMLSERIAL_BASETYPE>::type,XMLSERIAL_B> { \
+			const static bool valid = XMLSERIAL_B; \
+			typedef basename::xmlserial_valloc::rettype rettype; \
+			typedef XMLSERIALNAMESPACE::basefactory<rettype> createtype; \
+			template<typename PTRT> \
+			inline static void allocbyname(const std::string &name, \
+						PTRT &ret) { \
+				basename::xmlserial_valloc::allocbyname<PTRT>(name,ret); \
+			} \
+			inline static const char *addalloc(const char *name, createtype *fn) \
+				{ return basename::xmlserial_valloc::addalloc(name,fn); } \
+		}; \
 			
 
 /* Here starts "ENSURECLASS" macros */
@@ -619,18 +625,25 @@ namespace XMLSERIALNAMESPACE {
         } \
         template<typename S> \
         inline void Load(S &is) { \
-            XMLSERIALNAMESPACE::LoadWrapper(*this,is); \
+            XMLSERIALNAMESPACE::Load(*this,is); \
         } \
         template<typename S> \
         inline static XMLSERIAL_BASETYPE *LoadPtr(S &is) { \
             XMLSERIAL_BASETYPE *ret; \
-            XMLSERIALNAMESPACE::LoadWrapper(ret,is); \
+            XMLSERIALNAMESPACE::Load(ret,is); \
             return ret; \
         }
 
-//------------------------------------
-// implementation (templated part)
-//------------------------------------
+//--------------
+// C++11 Macros
+//--------------
+#if __cplusplus > 199711L
+#include "xmlserial11.h"
+#endif
+
+//----------------
+// implementation 
+//----------------
 
 
 namespace XMLSERIALNAMESPACE {
@@ -1180,11 +1193,22 @@ namespace XMLSERIALNAMESPACE {
 
 	template<typename T>
 	std::string T2str(const T &i) {
+#if _cplusplus >199711L
+	// C++11 version
+		return std::to_string(i);
+#else
 		std::ostringstream ss;
 		ss << i;
 		return ss.str();
+#endif
 	}
 
+	// General save (for objects not modified, like std::vector or pointers)
+	template<typename T, typename S>
+	void Save(const T &v, S &os, int indent = 0) {
+		XMLTagInfo fields;
+		SaveWrapper(v,fields,os,indent);
+	}
 
 	// Saving method, general
 	template<typename T, typename S>
@@ -1323,6 +1347,14 @@ namespace XMLSERIALNAMESPACE {
 		}
 	};
 
+	// general Load (first read tag)
+	template<typename T, typename S>
+	inline void Load(T &v, S &is) {
+		XMLTagInfo info;
+		ReadTag(is,info);
+		LoadWrapper(v,info,is);
+	}
+
 	// general Load
 	template<typename T, typename S>
 	inline typename Type_If<!PtrInfo<T>::isptr,void>::type
@@ -1449,13 +1481,6 @@ namespace XMLSERIALNAMESPACE {
 		}
 	}
 
-	// Load, first read tag
-	template<typename T, typename S>
-	inline void LoadWrapper(T &v, S &is) {
-		XMLTagInfo info;
-		ReadTag(is,info);
-		LoadWrapper(v,info,is);
-	}
 
 	// next: SerialLoadWrap and SerialSaveWrap
 	// that call preload/postload or presave/postsave if they
@@ -1632,7 +1657,7 @@ namespace XMLSERIALNAMESPACE {
 #undef XMLSERIAL_GETTERSTRUCT
 #undef XMLSERIAL_GETTERSTRUCT_DEFAULT
 #undef XMLSERIAL_NOTV_COMMON
-#undef XMLSERIAL_V_COMMON
+#undef XMLSERIAL_P_COMMON
 #undef XMLSERIAL_NAME0
 #undef XMLSERIAL_NAME1
 #undef XMLSERIAL_NAME2
