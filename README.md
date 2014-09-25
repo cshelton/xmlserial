@@ -49,7 +49,7 @@ is usually a simpler syntax in C++11:
       // ... rest of declaration
    private:
       int a;
-   XMLSERIALCLASS(ClassA,a)
+   XMLSERIALCLASS(ClassA,,a)
    };
    class ClassB : public ClassA {
    public:
@@ -91,7 +91,7 @@ is usually a simpler syntax in C++11:
         // ... rest of declaration
     private:
         mymap m;
-        XMLSERIALCLASS2((TemplateMap,I,T),,m)
+        XMLSERIALCLASS((TemplateMap,I,T),,m)
     };
     
     template<typename C>
@@ -101,7 +101,7 @@ is usually a simpler syntax in C++11:
         CMap(); // be sure to have a default constructor
         // ... rest of declaration
         C x,y,z;
-        XMLSERIALCLASS1((CMap,C),Base,x,y,z)
+        XMLSERIALCLASS((CMap,C),Base,x,y,z)
     };
     ```
 
