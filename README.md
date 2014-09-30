@@ -13,9 +13,8 @@ There are two requirements on the class in order to use it with this code:
 2.  All member data or base classes that you wish to serialize must satistfy one of the following:
   1.  use this code for serialization
   2.  be a basic data type (int, double, char, etc.)
-  3.  be an STL class of a type T that meets this requirement (currently pair<T1,T2>, set<T>, map<T1,T2>, or vector<T>)
-  4.  be an STL string
-  5.  be a pointer to a datatype that used this code for serialization
+  3.  be an C++ ref class that meets this requirement (any C++03 ref lib container, plus string, pair, stack, queue, and priority_queue, and C++11 array)
+  5.  be a pointer (or C++11 smart pointer) to a datatype that used this code for serialization
 
 Note that this code, if used with archives, will serialize correctly structures in which two pointers point to the same object.  If used with a normal istream/ostream, it will not.  It also supports C++11 unique_ptr and shared_ptr.  It does not current support C++11 weak_ptr.
 
