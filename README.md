@@ -38,7 +38,7 @@ is usually a simpler syntax in C++11:
    };
    ```
 
-   *The macro XMLSERIALCLASS must be last*.  Its first argument is the name of the class.  The second argument (which may be blank, as above) is the name of the base class.  The remaining arguments (up to 30) are the members to be serialized.  If more than 30 are needed, use the C++03 syntax below.
+   *The macro XMLSERIALCLASS must be last*.  Its first argument is the name of the class.  The second argument (which may be blank, as above) is the name of the base class.  The remaining arguments (up to 30) are the members to be serialized.  If more than 30 are needed, use the C++03 syntax below.  The order for saving is as listed.  A stream to be read may have the elements in any order.
 
 * Base classes are placed in the second argument.  If there are more than one, they are in a parenthesized list.  A maximum of one may be a polymorphic class (see below).
 
@@ -124,7 +124,7 @@ is usually a simpler syntax in C++11:
 USAGE (C++03):
 --------------
 
-The usage is slightly more complex under C++03 because the types cannot be inferred (and so must be specified).  However, the use is slightly more flexible (for instance, allowing default values for base classes), and the macros may be placed anywhere in the class's definition.
+The usage is slightly more complex under C++03 because the types cannot be inferred (and so must be specified).  However, the use is slightly more flexible (for instance, allowing default values for base classes), and the macro block may be placed anywhere in the class's definition.
 
 The basic usage for a simple class is illustrated as below.
 ```c++

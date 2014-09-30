@@ -26,27 +26,27 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef XMLSERIAL_MAP_H
-#define XMLSERIAL_MAP_H
+#ifndef XMLSERIAL_MULTIMAP_H
+#define XMLSERIAL_MULTIMAP_H
 
-#include <map>
+#include <multimap>
 #include "xmlserial.h"
 #include "xmlserial_pair.h"
 
 namespace XMLSERIALNAMESPACE {
 	template<typename K,typename T,typename C, typename A>
-	struct TypeInfo<std::map<K,T,C,A>, void> {
-		inline static const char *namestr() { return "map"; }
+	struct TypeInfo<std::multimap<K,T,C,A>, void> {
+		inline static const char *namestr() { return "multimap"; }
 		template<typename S>
-		inline static void addotherattr(XMLTagInfo &,const std::map<K,T,C,A> &,S &) { }
-		inline static bool isshort(const std::map<K,T,C,A> &) { return false; }
-		inline static bool isinline(const std::map<K,T,C,A> &) { return false; }
+		inline static void addotherattr(XMLTagInfo &,const std::multimap<K,T,C,A> &,S &) { }
+		inline static bool isshort(const std::multimap<K,T,C,A> &) { return false; }
+		inline static bool isinline(const std::multimap<K,T,C,A> &) { return false; }
 		template<typename S>
-		inline static void save(const std::map<K,T,C,A> m,
+		inline static void save(const std::multimap<K,T,C,A> m,
 				S &os,int indent) {
 			os << std::endl;
 			int c=0;
-			for(typename std::map<K,T,C,A>::const_iterator i=m.begin();
+			for(typename std::multimap<K,T,C,A>::const_iterator i=m.begin();
 					i!=m.end();++i,++c) {
 				XMLTagInfo fields;
 				SaveWrapper(*i,fields,os,indent+1,"key","value");
@@ -54,7 +54,7 @@ namespace XMLSERIALNAMESPACE {
 			Indent(os,indent);
 		}
 		template<typename S>
-		inline static void load(std::map<K,T,C,A> &m, const XMLTagInfo &info,
+		inline static void load(std::multimap<K,T,C,A> &m, const XMLTagInfo &info,
 				S &is) {
 			m.clear();
 			XMLTagInfo eleminfo;

@@ -26,94 +26,89 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef XMLSERIAL_VECTOR_H
-#define XMLSERIAL_VECTOR_H
+#ifndef XMLSERIAL_UNORDERED_MULTISET_H
+#define XMLSERIAL_UNORDERED_MULTISET_H
 
-#include <vector>
-#include <sstream>
+#include <unordered_multiset>
 #include "xmlserial.h"
 
 namespace XMLSERIALNAMESPACE {
-	// if T is not "shiftable"
-	template<typename T,typename A>
-	struct TypeInfo<std::vector<T,A>,
-				typename Type_If<!IsShiftable<T>::atall,void>::type> {
-		inline static const char *namestr() { return "vector"; }
+	// for T not being "shiftable"
+	template<typename T,typename C,typename A>
+	struct TypeInfo<std::unordered_multiset<T,C,A>,
+					typename Type_If<!IsShiftable<T>::atall,void>::type> {
+		inline static const char *namestr() { return "unordered_multiset"; }
 		template<typename S>
-		inline static void addotherattr(XMLTagInfo &fields, const std::vector<T,A> &v, S &os) {
-			fields.attr["nelem"] = T2str(v.size());
-		}
-		inline static bool isshort(const std::vector<T,A> &) { return false; }
-		inline static bool isinline(const std::vector<T,A> &) { return false; }
+		inline static void addotherattr(XMLTagInfo &,const std::unordered_multiset<T,C,A> &,
+				S &) { }
+		inline static bool isshort(const std::unordered_multiset<T,C,A> &) { return false; }
+		inline static bool isinline(const std::unordered_multiset<T,C,A> &) { return false; }
 		template<typename S>
-		inline static void save(const std::vector<T,A> &v,
+		inline static void save(const std::unordered_multiset<T,C,A> &s,
 				S &os,int indent) {
 			os << std::endl;
 			int c=0;
-			for(typename std::vector<T,A>::const_iterator i=v.begin();
-					i!=v.end();++i,++c) {
+			for(typename std::unordered_multiset<T,C,A>::const_iterator i=s.begin();
+					i!=s.end();++i,++c) {
 				XMLTagInfo fields;
 				SaveWrapper(*i,fields,os,indent+1);
 			}
 			Indent(os,indent);
 		}
 		template<typename S>
-		inline static void load(std::vector<T,A> &v, const XMLTagInfo &info,
+		inline static void load(std::unordered_multiset<T,C,A> &s, const XMLTagInfo &info,
 				S &is) {
-			std::map<std::string,std::string>::const_iterator ni
-				= info.attr.find("nelem");
-			int n = 0;
-			if (ni != info.attr.end())
-				v.resize(n = atoi(ni->second.c_str()));
-			else v.resize(0);
+			s.clear();
 			XMLTagInfo eleminfo;
 			int i=0;
 			while(1) {
 				ReadTag(is,eleminfo);
 				if (eleminfo.isend && !eleminfo.isstart) {
-					if (eleminfo.name == namestr()) {
-						if (i!=n) v.resize(i);
-						return;
-					}
+					if (eleminfo.name == namestr()) return;
 					throw streamexception(std::string("Stream Input Format Error: expected end tag for ")+namestr()+", received end tag for "+eleminfo.name);
 				}
-				if (i>=n) v.resize(n=i+1);
-				LoadWrapper(v[i++],eleminfo,is);
+				T temp;
+				LoadWrapper(temp,eleminfo,is);
+				s.insert(temp);
 			}
 		}
 	};
 
-	// If T is "shiftable"
-	template<typename T,typename A>
-	struct TypeInfo<std::vector<T,A>,
-				typename Type_If<IsShiftable<T>::atall,void>::type> {
+	// for T being "shiftable"
+	template<typename T,typename C,typename A>
+	struct TypeInfo<std::unordered_multiset<T,C,A>,
+					typename Type_If<IsShiftable<T>::atall,void>::type> {
 		inline static const char *namestr() {
-			static char *ret = TName("vector",1,TypeInfo<T>::namestr());
+			static char *ret = TName("unordered_multiset",1,TypeInfo<T>::namestr());
 			return ret;
 		}
 		template<typename S>
-		inline static void addotherattr(XMLTagInfo &fields, const std::vector<T,A> &v, S &os) {
-			fields.attr["nelem"] = T2str(v.size());
+		inline static void addotherattr(XMLTagInfo &fields,
+					const std::unordered_multiset<T,C,A> &v, S &os) {
+			fields.attr[nelem] = T2str(v.size());
 		}
-		inline static bool isshort(const std::vector<T,A> &) { return false; }
-		inline static bool isinline(const std::vector<T,A> &) { return false; }
+		inline static bool isshort(const std::unordered_multiset<T,C,A> &) { return false; }
+		inline static bool isinline(const std::unordered_multiset<T,C,A> &) { return false; }
 		template<typename S>
-		inline static void save(const std::vector<T,A> &v,
+		inline static void save(const std::unordered_multiset<T,C,A> &s,
 				S &os, int indent) {
-			for(typename std::vector<T,A>::const_iterator i=v.begin();i!=v.end();++i)
+			for(typename std::unordered_multiset<T,C,A>::const_iterator i=s.begin();i!=s.end();++i)
 				os << *i << ' ';
 		}
 		template<typename S>
-		inline static void load(std::vector<T,A> &v, const XMLTagInfo &info,
+		inline static void load(std::unordered_multiset<T,C,A> &s, const XMLTagInfo &info,
 				S &is) {
 			std::map<std::string,std::string>::const_iterator ni
 				= info.attr.find("nelem");
 			if (ni == info.attr.end())
-				throw streamexception("Stream Input Format Error: vector needs nelem attribute");
+				throw streamexception("Stream Input Format Error: ivector needs nelem attribute");
 			int n = atoi(ni->second.c_str());
-			v.resize(n);
-			for(int i=0;i<n;i++)
-				is >> v[i];
+			s.clear();
+			for(int i=0;i<n;i++) {
+				T temp;
+				is >> temp;
+				s.insert(temp);
+			}
 			ReadEndTag(is,namestr());
 		}
 	};

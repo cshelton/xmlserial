@@ -26,94 +26,97 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef XMLSERIAL_VECTOR_H
-#define XMLSERIAL_VECTOR_H
+#ifndef XMLSERIAL_FORWARD_LIST_H
+#define XMLSERIAL_FORWARD_LIST_H
 
-#include <vector>
+#include <forward_list>
 #include <sstream>
 #include "xmlserial.h"
 
 namespace XMLSERIALNAMESPACE {
 	// if T is not "shiftable"
 	template<typename T,typename A>
-	struct TypeInfo<std::vector<T,A>,
-				typename Type_If<!IsShiftable<T>::atall,void>::type> {
-		inline static const char *namestr() { return "vector"; }
+	struct TypeInfo<std::forward_list<T,A>,
+	typename Type_If<!IsShiftable<T>::atall,void>::type> {
+		inline static const char *namestr() { return "forward_list"; }
 		template<typename S>
-		inline static void addotherattr(XMLTagInfo &fields, const std::vector<T,A> &v, S &os) {
-			fields.attr["nelem"] = T2str(v.size());
-		}
-		inline static bool isshort(const std::vector<T,A> &) { return false; }
-		inline static bool isinline(const std::vector<T,A> &) { return false; }
+		inline static void addotherattr(XMLTagInfo &fields,
+				const std::forward_list<T,A> &, S &) { }
+		inline static bool isshort(const std::forward_list<T,A> &) { return false; }
+		inline static bool isinline(const std::forward_list<T,A> &) { return false; }
 		template<typename S>
-		inline static void save(const std::vector<T,A> &v,
+		inline static void save(const std::forward_list<T,A> &l,
 				S &os,int indent) {
 			os << std::endl;
 			int c=0;
-			for(typename std::vector<T,A>::const_iterator i=v.begin();
-					i!=v.end();++i,++c) {
+			for(typename std::forward_list<T,A>::const_iterator i=l.begin();
+					i!=l.end();++i,++c) {
 				XMLTagInfo fields;
 				SaveWrapper(*i,fields,os,indent+1);
 			}
 			Indent(os,indent);
 		}
 		template<typename S>
-		inline static void load(std::vector<T,A> &v, const XMLTagInfo &info,
+		inline static void load(std::forward_list<T,A> &l, const XMLTagInfo &info,
 				S &is) {
-			std::map<std::string,std::string>::const_iterator ni
-				= info.attr.find("nelem");
-			int n = 0;
-			if (ni != info.attr.end())
-				v.resize(n = atoi(ni->second.c_str()));
-			else v.resize(0);
+			l.clear();
 			XMLTagInfo eleminfo;
-			int i=0;
+			typename std::forward_list<T,A>::iterator prev = l.before_begin();
 			while(1) {
 				ReadTag(is,eleminfo);
 				if (eleminfo.isend && !eleminfo.isstart) {
 					if (eleminfo.name == namestr()) {
-						if (i!=n) v.resize(i);
 						return;
 					}
 					throw streamexception(std::string("Stream Input Format Error: expected end tag for ")+namestr()+", received end tag for "+eleminfo.name);
 				}
-				if (i>=n) v.resize(n=i+1);
-				LoadWrapper(v[i++],eleminfo,is);
+#if _cplusplus <= 199711L
+				prev = l.insert_after(prev,T());
+#else
+				prev = l.emplace_after(prev);
+#endif
+				LoadWrapper(*prev,eleminfo,is);
 			}
 		}
 	};
 
 	// If T is "shiftable"
 	template<typename T,typename A>
-	struct TypeInfo<std::vector<T,A>,
+	struct TypeInfo<std::forward_list<T,A>,
 				typename Type_If<IsShiftable<T>::atall,void>::type> {
 		inline static const char *namestr() {
-			static char *ret = TName("vector",1,TypeInfo<T>::namestr());
+			static char *ret = TName("forward_list",1,TypeInfo<T>::namestr());
 			return ret;
 		}
 		template<typename S>
-		inline static void addotherattr(XMLTagInfo &fields, const std::vector<T,A> &v, S &os) {
-			fields.attr["nelem"] = T2str(v.size());
+		inline static void addotherattr(XMLTagInfo &fields, const std::forward_list<T,A> &l, S &os) {
+			fields.attr["nelem"] = T2str(l.size());
 		}
-		inline static bool isshort(const std::vector<T,A> &) { return false; }
-		inline static bool isinline(const std::vector<T,A> &) { return false; }
+		inline static bool isshort(const std::forward_list<T,A> &) { return false; }
+		inline static bool isinline(const std::forward_list<T,A> &) { return false; }
 		template<typename S>
-		inline static void save(const std::vector<T,A> &v,
+		inline static void save(const std::forward_list<T,A> &l,
 				S &os, int indent) {
-			for(typename std::vector<T,A>::const_iterator i=v.begin();i!=v.end();++i)
+			for(typename std::forward_list<T,A>::const_iterator i=l.begin();i!=l.end();++i)
 				os << *i << ' ';
 		}
 		template<typename S>
-		inline static void load(std::vector<T,A> &v, const XMLTagInfo &info,
+		inline static void load(std::forward_list<T,A> &l, const XMLTagInfo &info,
 				S &is) {
 			std::map<std::string,std::string>::const_iterator ni
-				= info.attr.find("nelem");
+								= info.attr.find("nelem");
 			if (ni == info.attr.end())
-				throw streamexception("Stream Input Format Error: vector needs nelem attribute");
+				throw streamexception("Stream Input Format Error: forward_list (when elements are saved with <<) needs nelem attribute");
 			int n = atoi(ni->second.c_str());
-			v.resize(n);
-			for(int i=0;i<n;i++)
-				is >> v[i];
+			typename std::forward_list<T,A>::iterator prev = l.before_begin();
+			for(int i=0;i<n;i++) {
+#if _cplusplus <= 199711L
+				prev = l.insert_after(prev,T());
+#else
+                    prev = l.emplace_after(prev);
+#endif
+				is >> *prev;
+			}
 			ReadEndTag(is,namestr());
 		}
 	};

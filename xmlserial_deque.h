@@ -26,31 +26,31 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef XMLSERIAL_VECTOR_H
-#define XMLSERIAL_VECTOR_H
+#ifndef XMLSERIAL_DEQUE_H
+#define XMLSERIAL_DEQUE_H
 
-#include <vector>
+#include <deque>
 #include <sstream>
 #include "xmlserial.h"
 
 namespace XMLSERIALNAMESPACE {
 	// if T is not "shiftable"
 	template<typename T,typename A>
-	struct TypeInfo<std::vector<T,A>,
+	struct TypeInfo<std::deque<T,A>,
 				typename Type_If<!IsShiftable<T>::atall,void>::type> {
-		inline static const char *namestr() { return "vector"; }
+		inline static const char *namestr() { return "deque"; }
 		template<typename S>
-		inline static void addotherattr(XMLTagInfo &fields, const std::vector<T,A> &v, S &os) {
+		inline static void addotherattr(XMLTagInfo &fields, const std::deque<T,A> &v, S &os) {
 			fields.attr["nelem"] = T2str(v.size());
 		}
-		inline static bool isshort(const std::vector<T,A> &) { return false; }
-		inline static bool isinline(const std::vector<T,A> &) { return false; }
+		inline static bool isshort(const std::deque<T,A> &) { return false; }
+		inline static bool isinline(const std::deque<T,A> &) { return false; }
 		template<typename S>
-		inline static void save(const std::vector<T,A> &v,
+		inline static void save(const std::deque<T,A> &v,
 				S &os,int indent) {
 			os << std::endl;
 			int c=0;
-			for(typename std::vector<T,A>::const_iterator i=v.begin();
+			for(typename std::deque<T,A>::const_iterator i=v.begin();
 					i!=v.end();++i,++c) {
 				XMLTagInfo fields;
 				SaveWrapper(*i,fields,os,indent+1);
@@ -58,7 +58,7 @@ namespace XMLSERIALNAMESPACE {
 			Indent(os,indent);
 		}
 		template<typename S>
-		inline static void load(std::vector<T,A> &v, const XMLTagInfo &info,
+		inline static void load(std::deque<T,A> &v, const XMLTagInfo &info,
 				S &is) {
 			std::map<std::string,std::string>::const_iterator ni
 				= info.attr.find("nelem");
@@ -85,31 +85,31 @@ namespace XMLSERIALNAMESPACE {
 
 	// If T is "shiftable"
 	template<typename T,typename A>
-	struct TypeInfo<std::vector<T,A>,
+	struct TypeInfo<std::deque<T,A>,
 				typename Type_If<IsShiftable<T>::atall,void>::type> {
 		inline static const char *namestr() {
-			static char *ret = TName("vector",1,TypeInfo<T>::namestr());
+			static char *ret = TName("deque",1,TypeInfo<T>::namestr());
 			return ret;
 		}
 		template<typename S>
-		inline static void addotherattr(XMLTagInfo &fields, const std::vector<T,A> &v, S &os) {
+		inline static void addotherattr(XMLTagInfo &fields, const std::deque<T,A> &v, S &os) {
 			fields.attr["nelem"] = T2str(v.size());
 		}
-		inline static bool isshort(const std::vector<T,A> &) { return false; }
-		inline static bool isinline(const std::vector<T,A> &) { return false; }
+		inline static bool isshort(const std::deque<T,A> &) { return false; }
+		inline static bool isinline(const std::deque<T,A> &) { return false; }
 		template<typename S>
-		inline static void save(const std::vector<T,A> &v,
+		inline static void save(const std::deque<T,A> &v,
 				S &os, int indent) {
-			for(typename std::vector<T,A>::const_iterator i=v.begin();i!=v.end();++i)
+			for(typename std::deque<T,A>::const_iterator i=v.begin();i!=v.end();++i)
 				os << *i << ' ';
 		}
 		template<typename S>
-		inline static void load(std::vector<T,A> &v, const XMLTagInfo &info,
+		inline static void load(std::deque<T,A> &v, const XMLTagInfo &info,
 				S &is) {
 			std::map<std::string,std::string>::const_iterator ni
 				= info.attr.find("nelem");
 			if (ni == info.attr.end())
-				throw streamexception("Stream Input Format Error: vector needs nelem attribute");
+				throw streamexception("Stream Input Format Error: deque needs nelem attribute");
 			int n = atoi(ni->second.c_str());
 			v.resize(n);
 			for(int i=0;i<n;i++)

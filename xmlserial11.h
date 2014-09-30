@@ -78,5 +78,8 @@
      FOREACH(XMLSERIAL11_VAR,__VA_ARGS__) \
      XMLSERIAL_END
 
+#define ENSURECLASS0(cname) ENSURECLASS(cname)
+
+#define EXPORTCLASS(cname,...) CALLVAR_SUB1(ENSURECLASS,cname,__VA_ARGS__)
 
 #endif

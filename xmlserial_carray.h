@@ -26,56 +26,72 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef XMLSERIAL_MAP_H
-#define XMLSERIAL_MAP_H
+#ifndef XMLSERIAL_CARRAY_H
+#define XMLSERIAL_CARRAY_H
 
-#include <map>
+#include <sstream>
 #include "xmlserial.h"
-#include "xmlserial_pair.h"
 
 namespace XMLSERIALNAMESPACE {
-	template<typename K,typename T,typename C, typename A>
-	struct TypeInfo<std::map<K,T,C,A>, void> {
-		inline static const char *namestr() { return "map"; }
+	// if T is not "shiftable"
+	template<typename T,std::size_t N>
+	struct TypeInfo<T[N],typename Type_If<!IsShiftable<T>::atall,void>::type> {
+		inline static const char *namestr() { return "carray"; }
 		template<typename S>
-		inline static void addotherattr(XMLTagInfo &,const std::map<K,T,C,A> &,S &) { }
-		inline static bool isshort(const std::map<K,T,C,A> &) { return false; }
-		inline static bool isinline(const std::map<K,T,C,A> &) { return false; }
+		inline static void addotherattr(XMLTagInfo &fields, const T (&v)[N], S &os) { }
+		inline static bool isshort(const T (&)[N]) { return false; }
+		inline static bool isinline(const T (&)[N]) { return false; }
 		template<typename S>
-		inline static void save(const std::map<K,T,C,A> m,
-				S &os,int indent) {
+		inline static void save(const T (&a)[N], S &os,int indent) {
 			os << std::endl;
-			int c=0;
-			for(typename std::map<K,T,C,A>::const_iterator i=m.begin();
-					i!=m.end();++i,++c) {
+			for(std::size_t i=0;i<N;i++) {
 				XMLTagInfo fields;
-				SaveWrapper(*i,fields,os,indent+1,"key","value");
+				SaveWrapper(a[i],fields,os,indent+1);
 			}
 			Indent(os,indent);
 		}
 		template<typename S>
-		inline static void load(std::map<K,T,C,A> &m, const XMLTagInfo &info,
-				S &is) {
-			m.clear();
+		inline static void load(T a[N], const XMLTagInfo &info, S &is) {
 			XMLTagInfo eleminfo;
-			int i=0;
+			std::size_t i=0;
 			while(1) {
 				ReadTag(is,eleminfo);
 				if (eleminfo.isend && !eleminfo.isstart) {
-					if (eleminfo.name == namestr()) return;
+					if (eleminfo.name == namestr()) {
+						if (i!=N) throw streamexception(std::string("Stream Input Format Error: expected ")+T2str(N)+" elements in array, received only "+T2str(i));
+						return;
+					}
 					throw streamexception(std::string("Stream Input Format Error: expected end tag for ")+namestr()+", received end tag for "+eleminfo.name);
 				}
-				std::pair<K,T> elem;
-				TypeInfo<std::pair<K,T> >::load(elem,eleminfo,is,"key","value");
-#if __cplusplus > 199711L
-					// not as efficient as I would like
-				m.insert(elem); // copying elements here
-#else
-				// might need to be fixed if moving is not possible!
-				m.emplace_back(std::move(elem)); // moving here
-#endif
+				LoadWrapper(a[i++],eleminfo,is);
 			}
 		}
 	};
+
+	// If T is "shiftable"
+	template<typename T,std::size_t N>
+	struct TypeInfo<T[N],typename Type_If<IsShiftable<T>::atall,void>::type> {
+		inline static const char *namestr() {
+			static char *ret = TName("carray",1,TypeInfo<T>::namestr());
+			return ret;
+		}
+		template<typename S>
+		inline static void addotherattr(XMLTagInfo &fields, const T (&a)[N], S &os) {
+		}
+		inline static bool isshort(const T (&)[N]) { return false; }
+		inline static bool isinline(const T (&)[N]) { return false; }
+		template<typename S>
+		inline static void save(const T (&a)[N], S &os, int indent) {
+			for(std::size_t i=0;i<N;i++)
+				os << a[i] << ' ';
+		}
+		template<typename S>
+		inline static void load(T a[N], const XMLTagInfo &info, S &is) {
+			for(std::size_t i=0;i<N;i++)
+				is >> a[i];
+			ReadEndTag(is,namestr());
+		}
+	};
+
 }
 #endif

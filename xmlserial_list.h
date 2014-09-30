@@ -26,94 +26,96 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef XMLSERIAL_VECTOR_H
-#define XMLSERIAL_VECTOR_H
+#ifndef XMLSERIAL_LIST_H
+#define XMLSERIAL_LIST_H
 
-#include <vector>
+#include <list>
 #include <sstream>
 #include "xmlserial.h"
 
 namespace XMLSERIALNAMESPACE {
 	// if T is not "shiftable"
 	template<typename T,typename A>
-	struct TypeInfo<std::vector<T,A>,
-				typename Type_If<!IsShiftable<T>::atall,void>::type> {
-		inline static const char *namestr() { return "vector"; }
+	struct TypeInfo<std::list<T,A>,
+	typename Type_If<!IsShiftable<T>::atall,void>::type> {
+		inline static const char *namestr() { return "list"; }
 		template<typename S>
-		inline static void addotherattr(XMLTagInfo &fields, const std::vector<T,A> &v, S &os) {
-			fields.attr["nelem"] = T2str(v.size());
-		}
-		inline static bool isshort(const std::vector<T,A> &) { return false; }
-		inline static bool isinline(const std::vector<T,A> &) { return false; }
+		inline static void addotherattr(XMLTagInfo &fields,
+				const std::list<T,A> &, S &) { }
+		inline static bool isshort(const std::list<T,A> &) { return false; }
+		inline static bool isinline(const std::list<T,A> &) { return false; }
 		template<typename S>
-		inline static void save(const std::vector<T,A> &v,
+		inline static void save(const std::list<T,A> &l,
 				S &os,int indent) {
 			os << std::endl;
 			int c=0;
-			for(typename std::vector<T,A>::const_iterator i=v.begin();
-					i!=v.end();++i,++c) {
+			for(typename std::list<T,A>::const_iterator i=l.begin();
+					i!=l.end();++i,++c) {
 				XMLTagInfo fields;
 				SaveWrapper(*i,fields,os,indent+1);
 			}
 			Indent(os,indent);
 		}
 		template<typename S>
-		inline static void load(std::vector<T,A> &v, const XMLTagInfo &info,
+		inline static void load(std::list<T,A> &l, const XMLTagInfo &info,
 				S &is) {
-			std::map<std::string,std::string>::const_iterator ni
-				= info.attr.find("nelem");
-			int n = 0;
-			if (ni != info.attr.end())
-				v.resize(n = atoi(ni->second.c_str()));
-			else v.resize(0);
+			l.clear();
 			XMLTagInfo eleminfo;
-			int i=0;
 			while(1) {
 				ReadTag(is,eleminfo);
 				if (eleminfo.isend && !eleminfo.isstart) {
 					if (eleminfo.name == namestr()) {
-						if (i!=n) v.resize(i);
 						return;
 					}
 					throw streamexception(std::string("Stream Input Format Error: expected end tag for ")+namestr()+", received end tag for "+eleminfo.name);
 				}
-				if (i>=n) v.resize(n=i+1);
-				LoadWrapper(v[i++],eleminfo,is);
+#if _cplusplus <= 199711L
+				l.push_back(T());
+#else
+				l.emplace_back();
+#endif
+				LoadWrapper(l.back(),eleminfo,is);
 			}
 		}
 	};
 
 	// If T is "shiftable"
 	template<typename T,typename A>
-	struct TypeInfo<std::vector<T,A>,
+	struct TypeInfo<std::list<T,A>,
 				typename Type_If<IsShiftable<T>::atall,void>::type> {
 		inline static const char *namestr() {
-			static char *ret = TName("vector",1,TypeInfo<T>::namestr());
+			static char *ret = TName("list",1,TypeInfo<T>::namestr());
 			return ret;
 		}
 		template<typename S>
-		inline static void addotherattr(XMLTagInfo &fields, const std::vector<T,A> &v, S &os) {
-			fields.attr["nelem"] = T2str(v.size());
+		inline static void addotherattr(XMLTagInfo &fields, const std::list<T,A> &l, S &os) {
+			fields.attr["nelem"] = T2str(l.size());
 		}
-		inline static bool isshort(const std::vector<T,A> &) { return false; }
-		inline static bool isinline(const std::vector<T,A> &) { return false; }
+		inline static bool isshort(const std::list<T,A> &) { return false; }
+		inline static bool isinline(const std::list<T,A> &) { return false; }
 		template<typename S>
-		inline static void save(const std::vector<T,A> &v,
+		inline static void save(const std::list<T,A> &l,
 				S &os, int indent) {
-			for(typename std::vector<T,A>::const_iterator i=v.begin();i!=v.end();++i)
+			for(typename std::list<T,A>::const_iterator i=l.begin();i!=l.end();++i)
 				os << *i << ' ';
 		}
 		template<typename S>
-		inline static void load(std::vector<T,A> &v, const XMLTagInfo &info,
+		inline static void load(std::list<T,A> &l, const XMLTagInfo &info,
 				S &is) {
 			std::map<std::string,std::string>::const_iterator ni
-				= info.attr.find("nelem");
+								= info.attr.find("nelem");
 			if (ni == info.attr.end())
-				throw streamexception("Stream Input Format Error: vector needs nelem attribute");
+				throw streamexception("Stream Input Format Error: list (when elements are saved with <<) needs nelem attribute");
 			int n = atoi(ni->second.c_str());
-			v.resize(n);
-			for(int i=0;i<n;i++)
-				is >> v[i];
+
+			for(int i=0;i<n;i++) {
+#if _cplusplus <= 199711L
+				l.push_back(T());
+#else
+                    l.emplace_back();
+#endif
+				is >> l.back();
+			}
 			ReadEndTag(is,namestr());
 		}
 	};
