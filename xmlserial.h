@@ -279,7 +279,7 @@ namespace XMLSERIALNAMESPACE {
 	static const char *xmlserial_IDname() { \
 		static const char *ret = xmlserial_valloc::addalloc( \
 			XMLSERIAL_NAME0(cname), \
-			new XMLSERIALNAMESPACE::factory<XMLSERIAL_BASETYPE,xmlserial_valloc::rettype>()); \
+			new XMLSERIALNAMESPACE::factory<XMLSERIAL_BASETYPE,typename xmlserial_valloc::rettype>()); \
 		return ret; \
 	} \
 
@@ -287,7 +287,7 @@ namespace XMLSERIALNAMESPACE {
 	static const char *xmlserial_IDname() { \
 		static const char *ret = xmlserial_valloc::addalloc( \
 			XMLSERIAL_NAME1(cname,tname1), \
-			new XMLSERIALNAMESPACE::factory<XMLSERIAL_BASETYPE,xmlserial_valloc::rettype>()); \
+			new XMLSERIALNAMESPACE::factory<XMLSERIAL_BASETYPE,typename xmlserial_valloc::rettype>()); \
 		return ret; \
 	}
 
@@ -295,7 +295,7 @@ namespace XMLSERIALNAMESPACE {
 	static const char *xmlserial_IDname() { \
 		static const char *ret = xmlserial_valloc::addalloc( \
 			XMLSERIAL_NAME2(cname,tname1,tname2), \
-			new XMLSERIALNAMESPACE::factory<XMLSERIAL_BASETYPE,xmlserial_valloc::rettype>()); \
+			new XMLSERIALNAMESPACE::factory<XMLSERIAL_BASETYPE,typename xmlserial_valloc::rettype>()); \
 		return ret; \
 	}
 
@@ -303,7 +303,7 @@ namespace XMLSERIALNAMESPACE {
 	static const char *xmlserial_IDname() { \
 		static const char *ret = xmlserial_valloc::addalloc( \
 			XMLSERIAL_NAME3(cname,tname1,tname2,tname3), \
-			new XMLSERIALNAMESPACE::factory<XMLSERIAL_BASETYPE,xmlserial_valloc::rettype>()); \
+			new XMLSERIALNAMESPACE::factory<XMLSERIAL_BASETYPE,typename xmlserial_valloc::rettype>()); \
 		return ret; \
 	}
 
@@ -311,7 +311,7 @@ namespace XMLSERIALNAMESPACE {
 	static const char *xmlserial_IDname() { \
 		static const char *ret = xmlserial_valloc::addalloc( \
 			XMLSERIAL_NAME4(cname,tname1,tname2,tname3,tname4), \
-			new XMLSERIALNAMESPACE::factory<XMLSERIAL_BASETYPE,xmlserial_valloc::rettype>()); \
+			new XMLSERIALNAMESPACE::factory<XMLSERIAL_BASETYPE,typename xmlserial_valloc::rettype>()); \
 		return ret; \
 	}
 
